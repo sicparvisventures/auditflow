@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/sicparvisventures/auditflow/compare/v1.0.0...v1.1.0) (2025-12-09)
+
+
+### Features
+
+* add contextual hints system and PDF export ([8db2bff](https://github.com/sicparvisventures/auditflow/commit/8db2bffab75e29d65b24065304c98414485c8789))
+
 # 1.0.0 (2025-12-09)
 
 
