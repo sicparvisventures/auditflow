@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/sicparvisventures/auditflow/compare/v1.1.1...v1.1.2) (2025-12-09)
+
+
+### Bug Fixes
+
+* resolve TypeScript spread argument error in pdfGenerator ([21a9b14](https://github.com/sicparvisventures/auditflow/commit/21a9b14bf8f0a93bcf204729bf7c87bcd06ec9e8))
+
 ## [1.1.1](https://github.com/sicparvisventures/auditflow/compare/v1.1.0...v1.1.1) (2025-12-09)
 
 
