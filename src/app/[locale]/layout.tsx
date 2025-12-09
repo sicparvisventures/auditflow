@@ -12,10 +12,18 @@ export const metadata: Metadata = {
     template: `%s | ${AppConfig.name}`,
   },
   description: AppConfig.description,
+  manifest: '/site.webmanifest',
+  themeColor: '#2E8B7A',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: AppConfig.name,
+  },
   icons: [
     {
       rel: 'apple-touch-icon',
       url: '/apple-touch-icon.png',
+      sizes: '180x180',
     },
     {
       rel: 'icon',
@@ -28,6 +36,18 @@ export const metadata: Metadata = {
       type: 'image/png',
       sizes: '16x16',
       url: '/favicon-16x16.png',
+    },
+    {
+      rel: 'icon',
+      type: 'image/png',
+      sizes: '192x192',
+      url: '/icon-192x192.png',
+    },
+    {
+      rel: 'icon',
+      type: 'image/png',
+      sizes: '512x512',
+      url: '/icon-512x512.png',
     },
     {
       rel: 'icon',
