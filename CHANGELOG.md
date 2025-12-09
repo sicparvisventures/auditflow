@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/sicparvisventures/auditflow/compare/v1.1.0...v1.1.1) (2025-12-09)
+
+
+### Bug Fixes
+
+* add missing buttonVariants import ([1a084e4](https://github.com/sicparvisventures/auditflow/commit/1a084e40842f58f53b9b87e115eac9dcc686a33b))
+
 # [1.1.0](https://github.com/sicparvisventures/auditflow/compare/v1.0.0...v1.1.0) (2025-12-09)
 
 
