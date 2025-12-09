@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/sicparvisventures/auditflow/compare/v1.1.3...v1.2.0) (2025-12-09)
+
+
+### Features
+
+* update branding and add PWA support ([43b0c85](https://github.com/sicparvisventures/auditflow/commit/43b0c85ce8a65511f917c19d056be53c4c58809b))
+
 ## [1.1.3](https://github.com/sicparvisventures/auditflow/compare/v1.1.2...v1.1.3) (2025-12-09)
 
 
