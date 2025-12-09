@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 
 import { getAudit } from '@/actions/supabase';
+import { buttonVariants } from '@/components/ui/buttonVariants';
 import { TitleBar } from '@/features/dashboard/TitleBar';
 import { AuditDetailHints } from '@/features/hints';
 
