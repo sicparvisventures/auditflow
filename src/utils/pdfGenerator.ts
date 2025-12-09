@@ -312,7 +312,7 @@ export function generateAuditPdf(audit: AuditData): void {
         low: [156, 163, 175],
       };
       
-      const urgencyColor = urgencyColors[action.urgency as string] || urgencyColors.low;
+      const urgencyColor: [number, number, number] = urgencyColors[action.urgency as string] ?? [156, 163, 175];
       doc.setFillColor(urgencyColor[0], urgencyColor[1], urgencyColor[2]);
       doc.circle(25, y - 2, 2, 'F');
 
