@@ -1,4 +1,4 @@
-import { GitHubLogoIcon, TwitterLogoIcon } from '@radix-ui/react-icons';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
 import { badgeVariants } from '@/components/ui/badgeVariants';
@@ -10,23 +10,32 @@ export const Hero = () => {
   const t = useTranslations('Hero');
 
   return (
-    <Section className="py-36">
+    <Section className="py-20 md:py-36">
       <CenteredHero
         banner={(
-          <a
-            className={badgeVariants()}
-            href="https://twitter.com/ixartz"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <TwitterLogoIcon className="mr-1 size-5" />
-            {' '}
+          <span className={badgeVariants()}>
+            <svg
+              className="mr-1.5 size-4"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 3v18" />
+              <path d="M8 6h8" />
+              <path d="M6 9h12" />
+              <path d="M8 12h8" />
+              <circle cx="12" cy="18" r="3" />
+            </svg>
             {t('follow_twitter')}
-          </a>
+          </span>
         )}
         title={t.rich('title', {
           important: chunks => (
-            <span className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
               {chunks}
             </span>
           ),
@@ -34,20 +43,31 @@ export const Hero = () => {
         description={t('description')}
         buttons={(
           <>
-            <a
+            <Link
               className={buttonVariants({ size: 'lg' })}
-              href="https://github.com/ixartz/SaaS-Boilerplate"
+              href="/sign-up"
             >
               {t('primary_button')}
-            </a>
+            </Link>
 
-            <a
+            <Link
               className={buttonVariants({ variant: 'outline', size: 'lg' })}
-              href="https://github.com/ixartz/SaaS-Boilerplate"
+              href="#features"
             >
-              <GitHubLogoIcon className="mr-2 size-5" />
+              <svg
+                className="mr-2 size-5"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
               {t('secondary_button')}
-            </a>
+            </Link>
           </>
         )}
       />

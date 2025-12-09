@@ -4,15 +4,17 @@ import { BILLING_INTERVAL, type PricingPlan } from '@/types/Subscription';
 
 const localePrefix: LocalePrefix = 'as-needed';
 
-// FIXME: Update this configuration file based on your project information
+// AuditFlow Configuration
 export const AppConfig = {
-  name: 'SaaS Template',
+  name: 'AuditFlow',
+  tagline: 'Streamline Your Audits',
+  description: 'Professional audit management platform for restaurants, retail, and hospitality businesses.',
   locales: [
     {
       id: 'en',
       name: 'English',
     },
-    { id: 'fr', name: 'Français' },
+    { id: 'nl', name: 'Nederlands' },
   ],
   defaultLocale: 'en',
   localePrefix,
@@ -21,54 +23,52 @@ export const AppConfig = {
 export const AllLocales = AppConfig.locales.map(locale => locale.id);
 
 export const PLAN_ID = {
-  FREE: 'free',
-  PREMIUM: 'premium',
+  STARTER: 'starter',
+  PROFESSIONAL: 'professional',
   ENTERPRISE: 'enterprise',
 } as const;
 
 export const PricingPlanList: Record<string, PricingPlan> = {
-  [PLAN_ID.FREE]: {
-    id: PLAN_ID.FREE,
-    price: 0,
+  [PLAN_ID.STARTER]: {
+    id: PLAN_ID.STARTER,
+    price: 29,
     interval: BILLING_INTERVAL.MONTH,
-    testPriceId: '',
+    testPriceId: 'price_starter_test',
     devPriceId: '',
     prodPriceId: '',
     features: {
-      teamMember: 2,
-      website: 2,
-      storage: 2,
-      transfer: 2,
+      teamMember: 3, // 3 users
+      website: 2, // 2 locations
+      storage: 10, // 10 audits/month
+      transfer: 1, // 1 GB photo storage
     },
   },
-  [PLAN_ID.PREMIUM]: {
-    id: PLAN_ID.PREMIUM,
+  [PLAN_ID.PROFESSIONAL]: {
+    id: PLAN_ID.PROFESSIONAL,
     price: 79,
     interval: BILLING_INTERVAL.MONTH,
-    testPriceId: 'price_premium_test', // Use for testing
-    // FIXME: Update the price ID, you can create it after running `npm run stripe:setup-price`
-    devPriceId: 'price_1PNksvKOp3DEwzQlGOXO7YBK',
+    testPriceId: 'price_professional_test',
+    devPriceId: '',
     prodPriceId: '',
     features: {
-      teamMember: 5,
-      website: 5,
-      storage: 5,
-      transfer: 5,
+      teamMember: 15, // 15 users
+      website: 10, // 10 locations
+      storage: 50, // 50 audits/month
+      transfer: 10, // 10 GB photo storage
     },
   },
   [PLAN_ID.ENTERPRISE]: {
     id: PLAN_ID.ENTERPRISE,
     price: 199,
     interval: BILLING_INTERVAL.MONTH,
-    testPriceId: 'price_enterprise_test', // Use for testing
-    // FIXME: Update the price ID, you can create it after running `npm run stripe:setup-price`
-    devPriceId: 'price_1PNksvKOp3DEwzQli9IvXzgb',
-    prodPriceId: 'price_123',
+    testPriceId: 'price_enterprise_test',
+    devPriceId: '',
+    prodPriceId: '',
     features: {
-      teamMember: 100,
-      website: 100,
-      storage: 100,
-      transfer: 100,
+      teamMember: 100, // Unlimited users
+      website: 100, // Unlimited locations
+      storage: 500, // Unlimited audits
+      transfer: 100, // 100 GB photo storage
     },
   },
 };

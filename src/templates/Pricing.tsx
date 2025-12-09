@@ -11,16 +11,18 @@ export const Pricing = () => {
 
   return (
     <Section
+      id="pricing"
       subtitle={t('section_subtitle')}
       title={t('section_title')}
       description={t('section_description')}
     >
       <PricingInformation
         buttonList={{
-          [PLAN_ID.FREE]: (
+          [PLAN_ID.STARTER]: (
             <Link
               className={buttonVariants({
                 size: 'sm',
+                variant: 'outline',
                 className: 'mt-5 w-full',
               })}
               href="/sign-up"
@@ -28,7 +30,7 @@ export const Pricing = () => {
               {t('button_text')}
             </Link>
           ),
-          [PLAN_ID.PREMIUM]: (
+          [PLAN_ID.PROFESSIONAL]: (
             <Link
               className={buttonVariants({
                 size: 'sm',
@@ -43,6 +45,7 @@ export const Pricing = () => {
             <Link
               className={buttonVariants({
                 size: 'sm',
+                variant: 'outline',
                 className: 'mt-5 w-full',
               })}
               href="/sign-up"

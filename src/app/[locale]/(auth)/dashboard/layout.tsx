@@ -1,6 +1,7 @@
 import { useTranslations } from 'next-intl';
 import { getTranslations } from 'next-intl/server';
 
+import { MobileNavigation } from '@/components/MobileNavigation';
 import { DashboardHeader } from '@/features/dashboard/DashboardHeader';
 
 export async function generateMetadata(props: { params: { locale: string } }) {
@@ -20,6 +21,7 @@ export default function DashboardLayout(props: { children: React.ReactNode }) {
 
   return (
     <>
+      {/* Desktop Header */}
       <div className="shadow-md">
         <div className="mx-auto flex max-w-screen-xl items-center justify-between px-3 py-4">
           <DashboardHeader
@@ -28,26 +30,36 @@ export default function DashboardLayout(props: { children: React.ReactNode }) {
                 href: '/dashboard',
                 label: t('home'),
               },
-              // PRO: Link to the /dashboard/todos page
               {
-                href: '/dashboard/organization-profile/organization-members',
-                label: t('members'),
+                href: '/dashboard/audits',
+                label: t('audits'),
+              },
+              {
+                href: '/dashboard/actions',
+                label: t('actions'),
+              },
+              {
+                href: '/dashboard/reports',
+                label: t('reports'),
               },
               {
                 href: '/dashboard/organization-profile',
                 label: t('settings'),
               },
-              // PRO: Link to the /dashboard/billing page
             ]}
           />
         </div>
       </div>
 
+      {/* Main Content - with bottom padding for mobile nav */}
       <div className="min-h-[calc(100vh-72px)] bg-muted">
-        <div className="mx-auto max-w-screen-xl px-3 pb-16 pt-6">
+        <div className="mx-auto max-w-screen-xl px-3 pb-24 pt-6 md:pb-16">
           {props.children}
         </div>
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileNavigation />
     </>
   );
 }

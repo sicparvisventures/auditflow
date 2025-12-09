@@ -12,20 +12,21 @@ export const Navbar = () => {
   const t = useTranslations('Navbar');
 
   return (
-    <Section className="px-3 py-6">
+    <Section className="px-3 py-4 md:py-6">
       <CenteredMenu
         logo={<Logo />}
         rightMenu={(
           <>
-            {/* PRO: Dark mode toggle button */}
-            <li data-fade>
+            <li data-fade className="hidden md:block">
               <LocaleSwitcher />
             </li>
             <li className="ml-1 mr-2.5" data-fade>
-              <Link href="/sign-in">{t('sign_in')}</Link>
+              <Link href="/sign-in" className="text-sm font-medium hover:text-primary">
+                {t('sign_in')}
+              </Link>
             </li>
             <li>
-              <Link className={buttonVariants()} href="/sign-up">
+              <Link className={buttonVariants({ size: 'sm' })} href="/sign-up">
                 {t('sign_up')}
               </Link>
             </li>
@@ -33,23 +34,27 @@ export const Navbar = () => {
         )}
       >
         <li>
-          <Link href="/sign-up">{t('product')}</Link>
+          <Link href="#features" className="hover:text-primary">
+            {t('features')}
+          </Link>
         </li>
 
         <li>
-          <Link href="/sign-up">{t('docs')}</Link>
+          <Link href="#pricing" className="hover:text-primary">
+            {t('pricing')}
+          </Link>
         </li>
 
         <li>
-          <Link href="/sign-up">{t('blog')}</Link>
+          <Link href="#faq" className="hover:text-primary">
+            {t('docs')}
+          </Link>
         </li>
 
         <li>
-          <Link href="/sign-up">{t('community')}</Link>
-        </li>
-
-        <li>
-          <Link href="/sign-up">{t('company')}</Link>
+          <Link href="#about" className="hover:text-primary">
+            {t('about')}
+          </Link>
         </li>
       </CenteredMenu>
     </Section>

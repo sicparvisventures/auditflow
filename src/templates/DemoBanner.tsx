@@ -4,8 +4,10 @@ import { StickyBanner } from '@/features/landing/StickyBanner';
 
 export const DemoBanner = () => (
   <StickyBanner>
-    Live Demo of SaaS Boilerplate -
+    🎉 Start your 14-day free trial today -
     {' '}
-    <Link href="/sign-up">Explore the User Dashboard</Link>
+    <Link href="/sign-up" className="font-semibold underline">
+      Get Started Free
+    </Link>
   </StickyBanner>
 );

@@ -1,6 +1,6 @@
 'use client';
 
-import { enUS, frFR } from '@clerk/localizations';
+import { enUS, nlNL } from '@clerk/localizations';
 import { ClerkProvider } from '@clerk/nextjs';
 
 import { AppConfig } from '@/utils/AppConfig';
@@ -15,8 +15,8 @@ export default function AuthLayout(props: {
   let dashboardUrl = '/dashboard';
   let afterSignOutUrl = '/';
 
-  if (props.params.locale === 'fr') {
-    clerkLocale = frFR;
+  if (props.params.locale === 'nl') {
+    clerkLocale = nlNL;
   }
 
   if (props.params.locale !== AppConfig.defaultLocale) {
@@ -28,13 +28,23 @@ export default function AuthLayout(props: {
 
   return (
     <ClerkProvider
-      // PRO: Dark mode support for Clerk
       localization={clerkLocale}
       signInUrl={signInUrl}
       signUpUrl={signUpUrl}
       signInFallbackRedirectUrl={dashboardUrl}
       signUpFallbackRedirectUrl={dashboardUrl}
       afterSignOutUrl={afterSignOutUrl}
+      appearance={{
+        variables: {
+          colorPrimary: 'hsl(166, 60%, 32%)',
+          colorTextOnPrimaryBackground: 'white',
+          borderRadius: '0.75rem',
+        },
+        elements: {
+          formButtonPrimary: 'bg-primary hover:bg-primary/90',
+          card: 'shadow-lg',
+        },
+      }}
     >
       {props.children}
     </ClerkProvider>

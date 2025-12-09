@@ -6,12 +6,13 @@ export const Section = (props: {
   subtitle?: string;
   description?: string;
   className?: string;
+  id?: string;
 }) => (
-  <div className={cn('px-3 py-16', props.className)}>
+  <div id={props.id} className={cn('px-3 py-16 scroll-mt-20', props.className)}>
     {(props.title || props.subtitle || props.description) && (
       <div className="mx-auto mb-12 max-w-screen-md text-center">
         {props.subtitle && (
-          <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-sm font-bold text-transparent">
+          <div className="bg-gradient-to-r from-primary to-accent bg-clip-text text-sm font-bold uppercase tracking-wider text-transparent">
             {props.subtitle}
           </div>
         )}

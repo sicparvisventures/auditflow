@@ -12,31 +12,27 @@ export const FAQ = () => {
   const t = useTranslations('FAQ');
 
   return (
-    <Section>
+    <Section
+      id="faq"
+      title="Frequently Asked Questions"
+      description="Everything you need to know about AuditFlow"
+    >
       <Accordion type="multiple" className="w-full">
         <AccordionItem value="item-1">
-          <AccordionTrigger>{t('question')}</AccordionTrigger>
-          <AccordionContent>{t('answer')}</AccordionContent>
+          <AccordionTrigger>{t('question1')}</AccordionTrigger>
+          <AccordionContent>{t('answer1')}</AccordionContent>
         </AccordionItem>
         <AccordionItem value="item-2">
-          <AccordionTrigger>{t('question')}</AccordionTrigger>
-          <AccordionContent>{t('answer')}</AccordionContent>
+          <AccordionTrigger>{t('question2')}</AccordionTrigger>
+          <AccordionContent>{t('answer2')}</AccordionContent>
         </AccordionItem>
         <AccordionItem value="item-3">
-          <AccordionTrigger>{t('question')}</AccordionTrigger>
-          <AccordionContent>{t('answer')}</AccordionContent>
+          <AccordionTrigger>{t('question3')}</AccordionTrigger>
+          <AccordionContent>{t('answer3')}</AccordionContent>
         </AccordionItem>
         <AccordionItem value="item-4">
-          <AccordionTrigger>{t('question')}</AccordionTrigger>
-          <AccordionContent>{t('answer')}</AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="item-5">
-          <AccordionTrigger>{t('question')}</AccordionTrigger>
-          <AccordionContent>{t('answer')}</AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="item-6">
-          <AccordionTrigger>{t('question')}</AccordionTrigger>
-          <AccordionContent>{t('answer')}</AccordionContent>
+          <AccordionTrigger>{t('question4')}</AccordionTrigger>
+          <AccordionContent>{t('answer4')}</AccordionContent>
         </AccordionItem>
       </Accordion>
     </Section>
