@@ -1,3 +1,10 @@
+## [1.1.3](https://github.com/sicparvisventures/auditflow/compare/v1.1.2...v1.1.3) (2025-12-09)
+
+
+### Bug Fixes
+
+* ensure urgencyColor is never undefined ([3c04016](https://github.com/sicparvisventures/auditflow/commit/3c04016184a2af8e11c1c4b516082b284c52fb7f))
+
 ## [1.1.2](https://github.com/sicparvisventures/auditflow/compare/v1.1.1...v1.1.2) (2025-12-09)
 
 
