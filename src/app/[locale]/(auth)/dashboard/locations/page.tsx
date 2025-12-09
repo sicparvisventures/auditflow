@@ -4,6 +4,7 @@ import { getTranslations } from 'next-intl/server';
 import { getLocations } from '@/actions/supabase';
 import { buttonVariants } from '@/components/ui/buttonVariants';
 import { TitleBar } from '@/features/dashboard/TitleBar';
+import { LocationsPageHints } from '@/features/hints';
 
 export default async function LocationsPage() {
   const t = await getTranslations('Locations');
@@ -15,6 +16,9 @@ export default async function LocationsPage() {
         title={t('title_bar')}
         description={t('title_bar_description')}
       />
+
+      {/* Contextual Hints */}
+      <LocationsPageHints hasLocations={locations.length > 0} />
 
       {/* Actions Bar */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

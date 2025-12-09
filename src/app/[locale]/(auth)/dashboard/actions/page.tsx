@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 
 import { getActions } from '@/actions/supabase';
 import { TitleBar } from '@/features/dashboard/TitleBar';
+import { ActionsPageHints } from '@/features/hints';
 
 const statusColors = {
   pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30',
@@ -41,6 +42,9 @@ export default async function ActionsPage() {
         title={t('title_bar')}
         description={t('title_bar_description')}
       />
+
+      {/* Contextual Hints */}
+      <ActionsPageHints hasActions={actions.length > 0} />
 
       {/* Stats */}
       <div className="mb-6 grid grid-cols-3 gap-4">

@@ -3,8 +3,10 @@ import { notFound } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 
 import { getAudit } from '@/actions/supabase';
-import { buttonVariants } from '@/components/ui/buttonVariants';
 import { TitleBar } from '@/features/dashboard/TitleBar';
+import { AuditDetailHints } from '@/features/hints';
+
+import { DownloadPdfButton } from './DownloadPdfButton';
 
 type Props = {
   params: { id: string; locale: string };
@@ -81,6 +83,9 @@ export default async function AuditDetailPage({ params }: Props) {
         })}
       />
 
+      {/* Contextual Hints */}
+      <AuditDetailHints status={audit.status} />
+
       <div className="mx-auto max-w-3xl space-y-6">
         {/* Summary Card */}
         <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
@@ -102,14 +107,7 @@ export default async function AuditDetailPage({ params }: Props) {
               )}
             </div>
             <div className="flex gap-2">
-              <button type="button" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-                <svg className="mr-2 size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                {t('download_pdf')}
-              </button>
+              <DownloadPdfButton audit={audit} />
             </div>
           </div>
 

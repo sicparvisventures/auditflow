@@ -1,8 +1,11 @@
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 
-import { getAudits, getActions, getLocations, getDashboardStats } from '@/actions/supabase';
+import { getActions, getAudits, getDashboardStats, getLocations } from '@/actions/supabase';
 import { TitleBar } from '@/features/dashboard/TitleBar';
+import { ReportsPageHints } from '@/features/hints';
+
+import { ExportReportButton } from './ExportReportButton';
 
 export default async function ReportsPage() {
   const t = await getTranslations('Reports');
@@ -28,12 +31,32 @@ export default async function ReportsPage() {
   // Location performance
   const locationPerformance = getLocationPerformance(audits, locations);
 
+  // Prepare data for export
+  const reportData = {
+    totalAudits: completedAudits.length,
+    passRate: completedAudits.length > 0 
+      ? Math.round((passedAudits.length / completedAudits.length) * 100) 
+      : 0,
+    openActions: pendingActions.length,
+    locationsCount: locations.length,
+    monthlyStats,
+    locationPerformance,
+  };
+
   return (
     <>
       <TitleBar
         title={t('title_bar')}
         description={t('title_bar_description')}
       />
+
+      {/* Contextual Hints */}
+      <ReportsPageHints />
+
+      {/* Export Actions */}
+      <div className="mb-6 flex justify-end">
+        <ExportReportButton data={reportData} />
+      </div>
 
       {/* Summary Stats */}
       <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">

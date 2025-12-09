@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
+import { HintToggle } from '@/features/hints';
 import { Logo } from '@/templates/Logo';
 import { getI18nPath } from '@/utils/Helpers';
 
@@ -91,6 +92,10 @@ export const DashboardHeader = (props: {
           </li>
 
           {/* PRO: Dark mode toggle button */}
+
+          <li data-fade>
+            <HintToggle />
+          </li>
 
           <li data-fade>
             <LocaleSwitcher />

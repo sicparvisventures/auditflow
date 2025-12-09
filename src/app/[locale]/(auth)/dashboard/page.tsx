@@ -4,6 +4,7 @@ import { getTranslations } from 'next-intl/server';
 import { getActions, getAudits, getDashboardStats } from '@/actions/supabase';
 import { buttonVariants } from '@/components/ui/buttonVariants';
 import { TitleBar } from '@/features/dashboard/TitleBar';
+import { DashboardHomeHints } from '@/features/hints';
 
 export default async function DashboardIndexPage() {
   const t = await getTranslations('DashboardIndex');
@@ -23,6 +24,9 @@ export default async function DashboardIndexPage() {
         title={t('title_bar')}
         description={t('title_bar_description')}
       />
+
+      {/* Contextual Hints */}
+      <DashboardHomeHints hasData={hasData} />
 
       {/* KPI Cards */}
       <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">

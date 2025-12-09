@@ -4,6 +4,7 @@ import { getTranslations } from 'next-intl/server';
 import { getAuditTemplates } from '@/actions/supabase';
 import { buttonVariants } from '@/components/ui/buttonVariants';
 import { TitleBar } from '@/features/dashboard/TitleBar';
+import { TemplatesPageHints } from '@/features/hints';
 
 export default async function TemplatesPage() {
   const t = await getTranslations('AuditTemplates');
@@ -15,6 +16,9 @@ export default async function TemplatesPage() {
         title={t('title')}
         description={t('description')}
       />
+
+      {/* Contextual Hints */}
+      <TemplatesPageHints hasTemplates={templates.length > 0} />
 
       {/* Actions Bar */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

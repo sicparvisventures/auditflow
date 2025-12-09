@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { createAudit, getAuditTemplate, getAuditTemplates, getLocations, saveAuditResults, completeAudit, uploadPhoto, deletePhoto } from '@/actions/supabase';
 import { buttonVariants } from '@/components/ui/buttonVariants';
 import { TitleBar } from '@/features/dashboard/TitleBar';
+import { NewAuditPageHints } from '@/features/hints';
 
 type AuditResult = {
   [itemId: string]: {
@@ -163,6 +164,9 @@ export default function NewAuditPage() {
           description={t('title_bar_description')}
         />
 
+        {/* Contextual Hints */}
+        <NewAuditPageHints step="select" />
+
         <div className="mx-auto max-w-md space-y-6">
           {error && (
             <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-sm text-destructive">
@@ -253,6 +257,9 @@ export default function NewAuditPage() {
   if (step === 'audit' && currentItem) {
     return (
       <div className="flex min-h-[calc(100vh-200px)] flex-col">
+        {/* Contextual Hints */}
+        <NewAuditPageHints step="audit" />
+
         {/* Progress Bar */}
         <div className="mb-4">
           <div className="mb-2 flex items-center justify-between text-sm">
@@ -400,6 +407,9 @@ export default function NewAuditPage() {
         title="Review Audit"
         description="Review your audit results before submitting"
       />
+
+      {/* Contextual Hints */}
+      <NewAuditPageHints step="review" />
 
       <div className="space-y-4">
         {/* Summary Card */}

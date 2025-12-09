@@ -5,6 +5,7 @@ import { getTranslations } from 'next-intl/server';
 import { getLocation } from '@/actions/supabase';
 import { buttonVariants } from '@/components/ui/buttonVariants';
 import { TitleBar } from '@/features/dashboard/TitleBar';
+import { LocationDetailHints } from '@/features/hints';
 
 import { DeleteLocationButton } from './DeleteButton';
 
@@ -26,6 +27,9 @@ export default async function LocationDetailPage({ params }: Props) {
         title={location.name}
         description={`${location.address || ''} ${location.city || ''}`.trim() || 'No address'}
       />
+
+      {/* Contextual Hints */}
+      <LocationDetailHints />
 
       <div className="mx-auto max-w-2xl space-y-6">
         {/* Status Badge */}

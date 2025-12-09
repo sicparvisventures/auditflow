@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
 import { TitleBar } from '@/features/dashboard/TitleBar';
+import { SettingsPageHints } from '@/features/hints';
 
 const SettingsPage = () => {
   const t = useTranslations('Settings');
@@ -63,6 +64,9 @@ const SettingsPage = () => {
         title={t('title_bar')}
         description={t('title_bar_description')}
       />
+
+      {/* Contextual Hints */}
+      <SettingsPageHints />
 
       <div className="grid gap-4 md:grid-cols-2">
         {settingsSections.map(section => (

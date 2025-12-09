@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { createAuditTemplate } from '@/actions/supabase';
 import { buttonVariants } from '@/components/ui/buttonVariants';
 import { TitleBar } from '@/features/dashboard/TitleBar';
+import { NewTemplateHints } from '@/features/hints';
 
 type ChecklistItem = {
   id: string;
@@ -186,6 +187,9 @@ export default function NewTemplatePage() {
         title={t('new_template')}
         description="Create a new audit template with categories and checklist items"
       />
+
+      {/* Contextual Hints */}
+      <NewTemplateHints />
 
       <form onSubmit={handleSubmit} className="mx-auto max-w-3xl space-y-6">
         {error && (

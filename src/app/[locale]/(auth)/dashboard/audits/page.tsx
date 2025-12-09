@@ -4,6 +4,7 @@ import { getTranslations } from 'next-intl/server';
 import { getAudits } from '@/actions/supabase';
 import { buttonVariants } from '@/components/ui/buttonVariants';
 import { TitleBar } from '@/features/dashboard/TitleBar';
+import { AuditsPageHints } from '@/features/hints';
 
 const statusColors = {
   draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800',
@@ -29,6 +30,9 @@ export default async function AuditsPage() {
         title={t('title_bar')}
         description={t('title_bar_description')}
       />
+
+      {/* Contextual Hints */}
+      <AuditsPageHints hasAudits={audits.length > 0} />
 
       {/* Actions Bar */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

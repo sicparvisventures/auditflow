@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { createLocation } from '@/actions/supabase';
 import { buttonVariants } from '@/components/ui/buttonVariants';
 import { TitleBar } from '@/features/dashboard/TitleBar';
+import { NewLocationHints } from '@/features/hints';
 
 export default function NewLocationPage() {
   const t = useTranslations('NewLocation');
@@ -37,6 +38,9 @@ export default function NewLocationPage() {
         title={t('title_bar')}
         description={t('title_bar_description')}
       />
+
+      {/* Contextual Hints */}
+      <NewLocationHints />
 
       <form onSubmit={handleSubmit} className="mx-auto max-w-2xl">
         {error && (

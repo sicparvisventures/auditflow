@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { getAuditTemplate } from '@/actions/supabase';
 import { buttonVariants } from '@/components/ui/buttonVariants';
 import { TitleBar } from '@/features/dashboard/TitleBar';
+import { TemplateDetailHints } from '@/features/hints';
 
 import { DeleteTemplateButton } from './DeleteButton';
 import { ToggleActiveButton } from './ToggleActiveButton';
@@ -30,6 +31,9 @@ export default async function TemplateDetailPage({ params }: Props) {
         title={template.name}
         description={template.description || 'Audit template'}
       />
+
+      {/* Contextual Hints */}
+      <TemplateDetailHints />
 
       <div className="mx-auto max-w-3xl space-y-6">
         {/* Status & Actions */}

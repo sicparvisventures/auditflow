@@ -4,6 +4,7 @@ import { getTranslations } from 'next-intl/server';
 
 import { getAction } from '@/actions/supabase';
 import { TitleBar } from '@/features/dashboard/TitleBar';
+import { ActionDetailHints } from '@/features/hints';
 
 import { ActionResponseForm } from './ResponseForm';
 import { VerifyActionForm } from './VerifyForm';
@@ -62,6 +63,9 @@ export default async function ActionDetailPage({ params }: Props) {
         title={t('title_bar')}
         description={action.location?.name || 'Unknown Location'}
       />
+
+      {/* Contextual Hints */}
+      <ActionDetailHints status={action.status} />
 
       <div className="mx-auto max-w-2xl space-y-6">
         {/* Status Header */}
