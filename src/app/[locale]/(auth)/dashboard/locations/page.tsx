@@ -1,14 +1,63 @@
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 
-import { getLocations } from '@/actions/supabase';
+import { getLocations, type LocationFilters } from '@/actions/supabase';
+import { FilterBar } from '@/components/filters';
 import { buttonVariants } from '@/components/ui/buttonVariants';
 import { TitleBar } from '@/features/dashboard/TitleBar';
 import { LocationsPageHints } from '@/features/hints';
 
-export default async function LocationsPage() {
+type Props = {
+  searchParams: { [key: string]: string | string[] | undefined };
+};
+
+export default async function LocationsPage({ searchParams }: Props) {
   const t = await getTranslations('Locations');
-  const locations = await getLocations();
+  
+  // Get all locations first to extract unique cities
+  const allLocations = await getLocations();
+  const cities = [...new Set(allLocations.filter(l => l.city).map(l => l.city as string))].sort();
+  
+  // Parse search params into filters
+  const filters: LocationFilters = {
+    status: searchParams.status as string,
+    search: searchParams.search as string,
+    city: searchParams.city as string,
+  };
+  
+  const locations = await getLocations(filters);
+
+  // Build filter config
+  const filterConfig = [
+    {
+      key: 'search',
+      label: 'Search',
+      type: 'search' as const,
+      placeholder: 'Search locations...',
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'select' as const,
+      placeholder: 'All statuses',
+      options: [
+        { value: 'active', label: 'Active' },
+        { value: 'inactive', label: 'Inactive' },
+      ],
+    },
+    {
+      key: 'city',
+      label: 'City',
+      type: 'select' as const,
+      placeholder: 'All cities',
+      options: cities.map(city => ({
+        value: city,
+        label: city,
+      })),
+    },
+  ];
+
+  const hasFilters = Object.values(filters).some(v => v && v !== 'all');
 
   return (
     <>
@@ -20,10 +69,14 @@ export default async function LocationsPage() {
       {/* Contextual Hints */}
       <LocationsPageHints hasLocations={locations.length > 0} />
 
+      {/* Filters */}
+      <FilterBar filters={filterConfig} />
+
       {/* Actions Bar */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-muted-foreground">
           {locations.length} {locations.length === 1 ? 'location' : 'locations'}
+          {hasFilters && ' (filtered)'}
         </div>
         <Link
           href="/dashboard/locations/new"
@@ -132,8 +185,12 @@ export default async function LocationsPage() {
               <path d="M19 21V11l-6-4" />
             </svg>
           </div>
-          <h3 className="mb-2 text-lg font-semibold">{t('no_locations')}</h3>
-          <p className="mb-6 text-muted-foreground">{t('add_first_location')}</p>
+          <h3 className="mb-2 text-lg font-semibold">
+            {hasFilters ? 'No matching locations' : t('no_locations')}
+          </h3>
+          <p className="mb-6 text-muted-foreground">
+            {hasFilters ? 'Try adjusting your filters' : t('add_first_location')}
+          </p>
           <Link href="/dashboard/locations/new" className={buttonVariants()}>
             {t('add_location')}
           </Link>
@@ -142,4 +199,3 @@ export default async function LocationsPage() {
     </>
   );
 }
-

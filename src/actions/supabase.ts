@@ -191,25 +191,54 @@ async function ensureUserExists(): Promise<string | null> {
 // LOCATIONS
 // ============================================
 
-export async function getLocations(): Promise<Location[]> {
+export type LocationFilters = {
+  status?: string;
+  search?: string;
+  city?: string;
+};
+
+export async function getLocations(filters?: LocationFilters): Promise<Location[]> {
   try {
     const orgId = await getOrganizationId();
     if (!orgId) return [];
-    
+
     const supabase = createServiceClient();
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('locations')
       .select('*')
       .eq('organization_id', orgId)
       .order('name');
+
+    // Apply filters
+    if (filters?.status && filters.status !== 'all') {
+      query = query.eq('status', filters.status);
+    }
+    
+    if (filters?.city && filters.city !== 'all') {
+      query = query.eq('city', filters.city);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error fetching locations:', error);
       return [];
     }
 
-    return data || [];
+    let results = data || [];
+    
+    // Client-side search filter
+    if (filters?.search) {
+      const searchLower = filters.search.toLowerCase();
+      results = results.filter(location => 
+        location.name?.toLowerCase().includes(searchLower) ||
+        location.address?.toLowerCase().includes(searchLower) ||
+        location.city?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    return results;
   } catch (error) {
     console.error('Error in getLocations:', error);
     return [];
@@ -404,7 +433,7 @@ export async function createAuditTemplate(formData: FormData): Promise<{ success
     const categoriesJson = formData.get('categories') as string;
     if (categoriesJson) {
       const categories = JSON.parse(categoriesJson);
-      
+
       for (let i = 0; i < categories.length; i++) {
         const cat = categories[i];
         const { data: category, error: catError } = await supabase
@@ -412,6 +441,7 @@ export async function createAuditTemplate(formData: FormData): Promise<{ success
           .insert([{
             template_id: template.id,
             name: cat.name,
+            description: cat.description || null,
             weight: cat.weight || 1,
             sort_order: i,
           }])
@@ -428,8 +458,10 @@ export async function createAuditTemplate(formData: FormData): Promise<{ success
             description: item.description || null,
             weight: item.weight || 1,
             requires_photo: item.requiresPhoto || false,
-            requires_comment_on_fail: true,
+            requires_comment_on_fail: item.requiresCommentOnFail !== false,
             creates_action_on_fail: item.createsAction !== false,
+            action_urgency: item.actionUrgency || 'medium',
+            action_deadline_days: item.actionDeadlineDays || 7,
             sort_order: idx,
           }));
 
@@ -506,7 +538,16 @@ export async function toggleTemplateActive(id: string, isActive: boolean): Promi
 // AUDITS
 // ============================================
 
-export async function getAudits(status?: string): Promise<Audit[]> {
+export type AuditFilters = {
+  status?: string;
+  locationId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+  passed?: string;
+};
+
+export async function getAudits(filters?: AuditFilters): Promise<Audit[]> {
   try {
     const orgId = await getOrganizationId();
     if (!orgId) return [];
@@ -523,8 +564,27 @@ export async function getAudits(status?: string): Promise<Audit[]> {
       .eq('organization_id', orgId)
       .order('audit_date', { ascending: false });
 
-    if (status) {
-      query = query.eq('status', status);
+    // Apply filters
+    if (filters?.status && filters.status !== 'all') {
+      query = query.eq('status', filters.status);
+    }
+    
+    if (filters?.locationId && filters.locationId !== 'all') {
+      query = query.eq('location_id', filters.locationId);
+    }
+    
+    if (filters?.dateFrom) {
+      query = query.gte('audit_date', filters.dateFrom);
+    }
+    
+    if (filters?.dateTo) {
+      query = query.lte('audit_date', filters.dateTo);
+    }
+    
+    if (filters?.passed === 'true') {
+      query = query.eq('passed', true);
+    } else if (filters?.passed === 'false') {
+      query = query.eq('passed', false);
     }
 
     const { data, error } = await query;
@@ -534,7 +594,17 @@ export async function getAudits(status?: string): Promise<Audit[]> {
       return [];
     }
 
-    return data || [];
+    // Client-side search filter (for location name)
+    let results = data || [];
+    if (filters?.search) {
+      const searchLower = filters.search.toLowerCase();
+      results = results.filter(audit => 
+        audit.location?.name?.toLowerCase().includes(searchLower) ||
+        audit.template?.name?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    return results;
   } catch (error) {
     console.error('Error in getAudits:', error);
     return [];
@@ -560,14 +630,19 @@ export async function getAudit(id: string) {
     return null;
   }
 
-  // Get results with template items
+  // Get results with template items and photos
   const { data: results } = await supabase
     .from('audit_results')
     .select(`
-      *,
+      id,
+      result,
+      score,
+      comments,
+      photo_urls,
       template_item:audit_template_items(
         id, 
         title,
+        requires_photo,
         category:audit_template_categories(id, name)
       )
     `)
@@ -679,7 +754,16 @@ export async function completeAudit(auditId: string): Promise<{ success: boolean
       return { success: false, error: 'Audit not found' };
     }
 
-    // Get all results with template items
+    // Get template for pass threshold
+    const { data: template } = await supabase
+      .from('audit_templates')
+      .select('pass_threshold')
+      .eq('id', audit.template_id)
+      .single();
+    
+    const passThreshold = template?.pass_threshold || 70;
+
+    // Get all results with template items including weights and action settings
     const { data: results } = await supabase
       .from('audit_results')
       .select(`
@@ -687,18 +771,36 @@ export async function completeAudit(auditId: string): Promise<{ success: boolean
         template_item:audit_template_items(
           id, 
           title,
-          creates_action_on_fail
+          description,
+          weight,
+          creates_action_on_fail,
+          action_urgency,
+          action_deadline_days,
+          category:audit_template_categories(id, name, weight)
         )
       `)
       .eq('audit_id', auditId);
 
-    // Calculate scores manually
+    // Calculate weighted scores
     const allResults = results || [];
-    const scoredResults = allResults.filter(r => r.result !== 'na');
-    const passedCount = allResults.filter(r => r.result === 'pass').length;
-    const totalItems = scoredResults.length;
-    const passPercentage = totalItems > 0 ? Math.round((passedCount / totalItems) * 100) : 0;
-    const passed = passPercentage >= 70; // Default threshold
+    let totalScore = 0;
+    let maxScore = 0;
+
+    allResults.forEach(result => {
+      const itemWeight = result.template_item?.weight || 1;
+      const categoryWeight = result.template_item?.category?.weight || 1;
+      const combinedWeight = itemWeight * categoryWeight;
+
+      if (result.result !== 'na') {
+        maxScore += combinedWeight;
+        if (result.result === 'pass') {
+          totalScore += combinedWeight;
+        }
+      }
+    });
+
+    const passPercentage = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
+    const passed = passPercentage >= passThreshold;
 
     // Update audit with calculated scores
     const { error: updateError } = await supabase
@@ -706,8 +808,8 @@ export async function completeAudit(auditId: string): Promise<{ success: boolean
       .update({
         status: 'completed',
         completed_at: new Date().toISOString(),
-        total_score: passedCount,
-        max_score: totalItems,
+        total_score: totalScore,
+        max_score: maxScore,
         pass_percentage: passPercentage,
         passed,
       })
@@ -724,17 +826,35 @@ export async function completeAudit(auditId: string): Promise<{ success: boolean
     const inspectorId = await ensureUserExists();
 
     for (const failedItem of failedItems) {
+      // Get deadline days from template or default to 7
+      const deadlineDays = failedItem.template_item?.action_deadline_days || 7;
+      const deadlineDate = new Date(Date.now() + deadlineDays * 24 * 60 * 60 * 1000);
+      
+      // Get urgency from template or default to medium
+      const urgency = failedItem.template_item?.action_urgency || 'medium';
+      
+      // Build description with context
+      const itemDescription = failedItem.template_item?.description || '';
+      const category = failedItem.template_item?.category?.name || '';
+      const auditDate = new Date(audit.audit_date).toLocaleDateString('nl-NL');
+      
+      let description = `Failed during audit on ${auditDate}`;
+      if (category) description = `[${category}] ${description}`;
+      if (failedItem.comments) description += `\n\nInspector note: ${failedItem.comments}`;
+      if (itemDescription) description += `\n\nChecklist requirement: ${itemDescription}`;
+
       const actionData = {
         organization_id: audit.organization_id,
         location_id: audit.location_id,
         audit_id: auditId,
+        audit_result_id: failedItem.id,
         title: failedItem.template_item?.title || 'Failed audit item',
-        description: failedItem.comments || `This item failed during audit on ${new Date().toLocaleDateString('nl-NL')}`,
+        description,
         status: 'pending',
-        urgency: 'medium',
+        urgency,
         assigned_to_id: audit.location?.manager_id || null,
         created_by_id: inspectorId,
-        deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
+        deadline: deadlineDate.toISOString().split('T')[0],
       };
 
       await supabase.from('actions').insert([actionData]);
@@ -750,11 +870,43 @@ export async function completeAudit(auditId: string): Promise<{ success: boolean
   }
 }
 
+export async function deleteAudit(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = createServiceClient();
+
+    // First delete related audit results
+    await supabase.from('audit_results').delete().eq('audit_id', id);
+    
+    // Delete related actions (optional - you might want to keep them)
+    // await supabase.from('actions').delete().eq('audit_id', id);
+
+    // Delete the audit
+    const { error } = await supabase.from('audits').delete().eq('id', id);
+
+    if (error) throw error;
+
+    revalidatePath('/dashboard/audits');
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting audit:', error);
+    return { success: false, error: 'Failed to delete audit' };
+  }
+}
+
 // ============================================
 // ACTIONS
 // ============================================
 
-export async function getActions(status?: string): Promise<Action[]> {
+export type ActionFilters = {
+  status?: string;
+  urgency?: string;
+  locationId?: string;
+  search?: string;
+  overdue?: string;
+};
+
+export async function getActions(filters?: ActionFilters): Promise<Action[]> {
   try {
     const orgId = await getOrganizationId();
     if (!orgId) return [];
@@ -770,8 +922,17 @@ export async function getActions(status?: string): Promise<Action[]> {
       .eq('organization_id', orgId)
       .order('created_at', { ascending: false });
 
-    if (status) {
-      query = query.eq('status', status);
+    // Apply filters
+    if (filters?.status && filters.status !== 'all') {
+      query = query.eq('status', filters.status);
+    }
+    
+    if (filters?.urgency && filters.urgency !== 'all') {
+      query = query.eq('urgency', filters.urgency);
+    }
+    
+    if (filters?.locationId && filters.locationId !== 'all') {
+      query = query.eq('location_id', filters.locationId);
     }
 
     const { data, error } = await query;
@@ -781,7 +942,28 @@ export async function getActions(status?: string): Promise<Action[]> {
       return [];
     }
 
-    return data || [];
+    let results = data || [];
+    
+    // Client-side filters
+    if (filters?.search) {
+      const searchLower = filters.search.toLowerCase();
+      results = results.filter(action => 
+        action.title?.toLowerCase().includes(searchLower) ||
+        action.description?.toLowerCase().includes(searchLower) ||
+        action.location?.name?.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Filter overdue actions
+    if (filters?.overdue === 'true') {
+      const now = new Date();
+      results = results.filter(action => 
+        action.deadline && new Date(action.deadline) < now && 
+        !['completed', 'verified'].includes(action.status)
+      );
+    }
+
+    return results;
   } catch (error) {
     console.error('Error in getActions:', error);
     return [];
@@ -796,7 +978,19 @@ export async function getAction(id: string) {
     .select(`
       *,
       location:locations(id, name, address, city),
-      audit:audits(id, audit_date)
+      audit:audits(id, audit_date, pass_percentage, passed, location:locations(name)),
+      audit_result:audit_results(
+        id,
+        result,
+        comments,
+        photo_urls,
+        template_item:audit_template_items(
+          title,
+          description,
+          weight,
+          category:audit_template_categories(name)
+        )
+      )
     `)
     .eq('id', id)
     .single();
@@ -917,6 +1111,23 @@ export async function verifyAction(id: string, approved: boolean, notes?: string
   } catch (error) {
     console.error('Error verifying action:', error);
     return { success: false, error: 'Failed to verify action' };
+  }
+}
+
+export async function deleteAction(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = createServiceClient();
+
+    const { error } = await supabase.from('actions').delete().eq('id', id);
+
+    if (error) throw error;
+
+    revalidatePath('/dashboard/actions');
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting action:', error);
+    return { success: false, error: 'Failed to delete action' };
   }
 }
 

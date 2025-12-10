@@ -57,6 +57,9 @@ export const DashboardHeader = (props: {
           appearance={{
             elements: {
               organizationSwitcherTrigger: 'max-w-28 sm:max-w-52',
+              footer: 'hidden',
+              footerAction: 'hidden',
+              footerPages: 'hidden',
             },
           }}
         />
@@ -112,6 +115,9 @@ export const DashboardHeader = (props: {
               appearance={{
                 elements: {
                   rootBox: 'px-2 py-1.5',
+                  footer: 'hidden',
+                  footerAction: 'hidden',
+                  footerPages: 'hidden',
                 },
               }}
             />

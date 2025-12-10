@@ -20,6 +20,13 @@ const OrganizationSelectionPage = () => (
       afterCreateOrganizationUrl="/dashboard"
       hidePersonal
       skipInvitationScreen
+      appearance={{
+        elements: {
+          footer: 'hidden',
+          footerAction: 'hidden',
+          footerPages: 'hidden',
+        },
+      }}
     />
   </div>
 );

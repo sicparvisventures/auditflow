@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 
-import { getActions } from '@/actions/supabase';
+import { getActions, getLocations, type ActionFilters } from '@/actions/supabase';
+import { FilterBar } from '@/components/filters';
 import { TitleBar } from '@/features/dashboard/TitleBar';
 import { ActionsPageHints } from '@/features/hints';
 
-const statusColors = {
+const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30',
   in_progress: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30',
   completed: 'bg-green-100 text-green-700 dark:bg-green-900/30',
@@ -13,7 +14,7 @@ const statusColors = {
   rejected: 'bg-red-100 text-red-700 dark:bg-red-900/30',
 };
 
-const statusLabels = {
+const statusLabels: Record<string, string> = {
   pending: 'Pending',
   in_progress: 'In Progress',
   completed: 'Completed',
@@ -21,20 +22,95 @@ const statusLabels = {
   rejected: 'Rejected',
 };
 
-const urgencyColors = {
+const urgencyColors: Record<string, string> = {
   low: 'bg-gray-400',
   medium: 'bg-yellow-500',
   high: 'bg-orange-500',
   critical: 'bg-red-500',
 };
 
-export default async function ActionsPage() {
-  const t = await getTranslations('Actions');
-  const actions = await getActions();
+type Props = {
+  searchParams: { [key: string]: string | string[] | undefined };
+};
 
-  const pendingCount = actions.filter(a => a.status === 'pending').length;
-  const inProgressCount = actions.filter(a => a.status === 'in_progress').length;
-  const completedCount = actions.filter(a => a.status === 'completed' || a.status === 'verified').length;
+export default async function ActionsPage({ searchParams }: Props) {
+  const t = await getTranslations('Actions');
+  
+  // Get locations for filter dropdown
+  const locations = await getLocations();
+  
+  // Parse search params into filters
+  const filters: ActionFilters = {
+    status: searchParams.status as string,
+    urgency: searchParams.urgency as string,
+    locationId: searchParams.location as string,
+    search: searchParams.search as string,
+    overdue: searchParams.overdue as string,
+  };
+  
+  const actions = await getActions(filters);
+
+  // Calculate stats (from all actions without filters for context)
+  const allActions = await getActions();
+  const pendingCount = allActions.filter(a => a.status === 'pending').length;
+  const inProgressCount = allActions.filter(a => a.status === 'in_progress').length;
+  const completedCount = allActions.filter(a => a.status === 'completed' || a.status === 'verified').length;
+
+  // Build filter config
+  const filterConfig = [
+    {
+      key: 'search',
+      label: 'Search',
+      type: 'search' as const,
+      placeholder: 'Search actions...',
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'select' as const,
+      placeholder: 'All statuses',
+      options: [
+        { value: 'pending', label: 'Pending' },
+        { value: 'in_progress', label: 'In Progress' },
+        { value: 'completed', label: 'Completed' },
+        { value: 'verified', label: 'Verified' },
+        { value: 'rejected', label: 'Rejected' },
+      ],
+    },
+    {
+      key: 'urgency',
+      label: 'Urgency',
+      type: 'select' as const,
+      placeholder: 'All urgencies',
+      options: [
+        { value: 'critical', label: 'Critical' },
+        { value: 'high', label: 'High' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'low', label: 'Low' },
+      ],
+    },
+    {
+      key: 'location',
+      label: 'Location',
+      type: 'select' as const,
+      placeholder: 'All locations',
+      options: locations.map(loc => ({
+        value: loc.id,
+        label: loc.name,
+      })),
+    },
+    {
+      key: 'overdue',
+      label: 'Overdue',
+      type: 'select' as const,
+      placeholder: 'All actions',
+      options: [
+        { value: 'true', label: 'Overdue only' },
+      ],
+    },
+  ];
+
+  const hasFilters = Object.values(filters).some(v => v && v !== 'all');
 
   return (
     <>
@@ -46,20 +122,44 @@ export default async function ActionsPage() {
       {/* Contextual Hints */}
       <ActionsPageHints hasActions={actions.length > 0} />
 
-      {/* Stats */}
+      {/* Stats - Clickable filters */}
       <div className="mb-6 grid grid-cols-3 gap-4">
-        <div className="rounded-lg border border-border bg-card p-4 text-center shadow-sm">
+        <Link
+          href={`/dashboard/actions?status=pending`}
+          className={`rounded-lg border border-border bg-card p-4 text-center shadow-sm transition-all hover:border-yellow-500 ${
+            filters.status === 'pending' ? 'border-yellow-500 ring-1 ring-yellow-500' : ''
+          }`}
+        >
           <div className="text-2xl font-bold text-yellow-600">{pendingCount}</div>
           <div className="text-sm text-muted-foreground">{t('filter_pending')}</div>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4 text-center shadow-sm">
+        </Link>
+        <Link
+          href={`/dashboard/actions?status=in_progress`}
+          className={`rounded-lg border border-border bg-card p-4 text-center shadow-sm transition-all hover:border-blue-500 ${
+            filters.status === 'in_progress' ? 'border-blue-500 ring-1 ring-blue-500' : ''
+          }`}
+        >
           <div className="text-2xl font-bold text-blue-600">{inProgressCount}</div>
           <div className="text-sm text-muted-foreground">{t('filter_in_progress')}</div>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4 text-center shadow-sm">
+        </Link>
+        <Link
+          href={`/dashboard/actions?status=verified`}
+          className={`rounded-lg border border-border bg-card p-4 text-center shadow-sm transition-all hover:border-green-500 ${
+            filters.status === 'completed' || filters.status === 'verified' ? 'border-green-500 ring-1 ring-green-500' : ''
+          }`}
+        >
           <div className="text-2xl font-bold text-green-600">{completedCount}</div>
           <div className="text-sm text-muted-foreground">{t('filter_completed')}</div>
-        </div>
+        </Link>
+      </div>
+
+      {/* Filters */}
+      <FilterBar filters={filterConfig} />
+
+      {/* Results count */}
+      <div className="mb-4 text-sm text-muted-foreground">
+        {actions.length} {actions.length === 1 ? 'action' : 'actions'}
+        {hasFilters && ' (filtered)'}
       </div>
 
       {/* Actions List */}
@@ -131,9 +231,13 @@ export default async function ActionsPage() {
               <polyline points="12 6 12 12 16 14" />
             </svg>
           </div>
-          <h3 className="mb-2 text-lg font-semibold">{t('no_actions')}</h3>
+          <h3 className="mb-2 text-lg font-semibold">
+            {hasFilters ? 'No matching actions' : t('no_actions')}
+          </h3>
           <p className="text-muted-foreground">
-            Actions will appear here when created from audit findings
+            {hasFilters 
+              ? 'Try adjusting your filters'
+              : 'Actions will appear here when created from audit findings'}
           </p>
         </div>
       )}

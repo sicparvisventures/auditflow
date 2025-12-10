@@ -278,7 +278,33 @@ export default function NewAuditPage() {
 
         {/* Current Item Card */}
         <div className="flex-1 rounded-lg border border-border bg-card p-6 shadow-sm">
-          <h2 className="mb-6 text-xl font-semibold">{currentItem.title}</h2>
+          <div className="mb-4 flex items-start justify-between gap-4">
+            <h2 className="text-xl font-semibold">{currentItem.title}</h2>
+            <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+              {currentItem.weight || 1} pts
+            </span>
+          </div>
+          
+          {/* Item description/instructions */}
+          {currentItem.description && (
+            <div className="mb-4 rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
+              <span className="font-medium">Instructions:</span> {currentItem.description}
+            </div>
+          )}
+
+          {/* Info badges */}
+          <div className="mb-4 flex flex-wrap gap-2">
+            {currentItem.requires_photo && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/30">
+                Photo required
+              </span>
+            )}
+            {currentItem.creates_action_on_fail && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-1 text-xs font-medium text-orange-700 dark:bg-orange-900/30">
+                Creates action if failed
+              </span>
+            )}
+          </div>
 
           {/* Result Buttons */}
           <div className="mb-6 grid grid-cols-3 gap-3">
@@ -412,41 +438,120 @@ export default function NewAuditPage() {
       <NewAuditPageHints step="review" />
 
       <div className="space-y-4">
-        {/* Summary Card */}
-        <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
-          <h3 className="mb-4 font-semibold">Summary</h3>
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <div className="text-2xl font-bold text-green-600">
-                {Object.values(results).filter(r => r.result === 'pass').length}
+        {/* Score Summary Card */}
+        {(() => {
+          // Calculate weighted score
+          let totalScore = 0;
+          let maxScore = 0;
+          let passedItems = 0;
+          let failedItems = 0;
+          let naItems = 0;
+          let actionsToCreate = 0;
+
+          templateData?.categories?.forEach((category: any) => {
+            const catWeight = category.weight || 1;
+            category.items?.forEach((item: any) => {
+              const itemWeight = item.weight || 1;
+              const combinedWeight = catWeight * itemWeight;
+              const result = results[item.id]?.result;
+              
+              if (result === 'pass') {
+                passedItems++;
+                totalScore += combinedWeight;
+                maxScore += combinedWeight;
+              } else if (result === 'fail') {
+                failedItems++;
+                maxScore += combinedWeight;
+                if (item.creates_action_on_fail) actionsToCreate++;
+              } else {
+                naItems++;
+              }
+            });
+          });
+
+          const percentage = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
+          const passThreshold = templateData?.pass_threshold || 70;
+          const willPass = percentage >= passThreshold;
+
+          return (
+            <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
+              <h3 className="mb-4 font-semibold">Audit Summary</h3>
+              
+              {/* Score Display */}
+              <div className="mb-6 flex items-center justify-center">
+                <div className="relative">
+                  <svg className="size-28" viewBox="0 0 36 36">
+                    <path
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke="hsl(var(--muted))"
+                      strokeWidth="3"
+                    />
+                    <path
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke={willPass ? 'hsl(142, 76%, 36%)' : 'hsl(0, 84%, 60%)'}
+                      strokeWidth="3"
+                      strokeDasharray={`${percentage}, 100`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-2xl font-bold">{percentage}%</span>
+                    <span className={`text-xs font-medium ${willPass ? 'text-green-600' : 'text-red-600'}`}>
+                      {willPass ? 'PASS' : 'FAIL'}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div className="text-sm text-muted-foreground">Passed</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-red-600">
-                {Object.values(results).filter(r => r.result === 'fail').length}
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-4 gap-3 text-center">
+                <div className="rounded-lg bg-green-50 p-3 dark:bg-green-900/20">
+                  <div className="text-xl font-bold text-green-600">{passedItems}</div>
+                  <div className="text-xs text-muted-foreground">Passed</div>
+                </div>
+                <div className="rounded-lg bg-red-50 p-3 dark:bg-red-900/20">
+                  <div className="text-xl font-bold text-red-600">{failedItems}</div>
+                  <div className="text-xs text-muted-foreground">Failed</div>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+                  <div className="text-xl font-bold text-gray-600">{naItems}</div>
+                  <div className="text-xs text-muted-foreground">N/A</div>
+                </div>
+                <div className="rounded-lg bg-orange-50 p-3 dark:bg-orange-900/20">
+                  <div className="text-xl font-bold text-orange-600">{actionsToCreate}</div>
+                  <div className="text-xs text-muted-foreground">Actions</div>
+                </div>
               </div>
-              <div className="text-sm text-muted-foreground">Failed</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-600">
-                {Object.values(results).filter(r => r.result === 'na').length}
+
+              {/* Score Details */}
+              <div className="mt-4 flex justify-between text-sm">
+                <span className="text-muted-foreground">
+                  Score: {totalScore.toFixed(1)} / {maxScore.toFixed(1)} pts
+                </span>
+                <span className="text-muted-foreground">
+                  Pass threshold: {passThreshold}%
+                </span>
               </div>
-              <div className="text-sm text-muted-foreground">N/A</div>
             </div>
-          </div>
-        </div>
+          );
+        })()}
 
         {/* Items List by Category */}
         {templateData?.categories?.map((category: any) => (
           <div key={category.id} className="rounded-lg border border-border bg-card p-4 shadow-sm">
-            <h4 className="mb-3 font-medium">{category.name}</h4>
+            <div className="mb-3 flex items-center justify-between">
+              <h4 className="font-medium">{category.name}</h4>
+              <span className="text-xs text-muted-foreground">Weight: {category.weight || 1}x</span>
+            </div>
             <div className="space-y-2">
               {category.items?.map((item: any) => (
-                <div key={item.id} className="flex items-center justify-between text-sm">
+                <div key={item.id} className="flex items-center justify-between gap-2 text-sm">
                   <span className="flex-1">{item.title}</span>
+                  <span className="text-xs text-muted-foreground">{item.weight || 1}pts</span>
                   <span
-                    className={`rounded-full px-2 py-1 text-xs font-medium ${
+                    className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${
                       results[item.id]?.result === 'pass'
                         ? 'bg-green-100 text-green-700'
                         : results[item.id]?.result === 'fail'

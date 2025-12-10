@@ -7,6 +7,7 @@ import { buttonVariants } from '@/components/ui/buttonVariants';
 import { TitleBar } from '@/features/dashboard/TitleBar';
 import { AuditDetailHints } from '@/features/hints';
 
+import { DeleteAuditButton } from './DeleteAuditButton';
 import { DownloadPdfButton } from './DownloadPdfButton';
 
 type Props = {
@@ -259,31 +260,59 @@ export default async function AuditDetailPage({ params }: Props) {
 
             <div className="divide-y divide-border">
               {items.map((item: any) => (
-                <div key={item.id} className="flex items-center gap-4 p-4">
-                  {/* Result Icon */}
-                  <div className={resultColors[item.result as keyof typeof resultColors]}>
-                    {item.result === 'pass' ? (
-                      <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    ) : item.result === 'fail' ? (
-                      <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    ) : (
-                      <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="5" y1="12" x2="19" y2="12" />
-                      </svg>
-                    )}
-                  </div>
+                <div key={item.id} className="p-4">
+                  <div className="flex items-start gap-4">
+                    {/* Result Icon */}
+                    <div className={`mt-0.5 ${resultColors[item.result as keyof typeof resultColors]}`}>
+                      {item.result === 'pass' ? (
+                        <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      ) : item.result === 'fail' ? (
+                        <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      ) : (
+                        <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                      )}
+                    </div>
 
-                  {/* Item Title */}
-                  <div className="flex-1">
-                    <span>{item.template_item?.title || 'Unknown Item'}</span>
-                    {item.comments && (
-                      <p className="text-sm text-muted-foreground">{item.comments}</p>
-                    )}
+                    {/* Item Content */}
+                    <div className="flex-1">
+                      <span className="font-medium">{item.template_item?.title || 'Unknown Item'}</span>
+                      {item.comments && (
+                        <p className="mt-1 text-sm text-muted-foreground">{item.comments}</p>
+                      )}
+                      
+                      {/* Photos Grid */}
+                      {item.photo_urls && item.photo_urls.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {item.photo_urls.map((url: string, photoIndex: number) => (
+                            <a
+                              key={photoIndex}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="group relative block size-20 overflow-hidden rounded-lg border border-border"
+                            >
+                              <img
+                                src={url}
+                                alt={`Evidence ${photoIndex + 1}`}
+                                className="size-full object-cover transition-transform group-hover:scale-110"
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/40">
+                                <svg className="size-6 text-white opacity-0 transition-opacity group-hover:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                                </svg>
+                              </div>
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -305,6 +334,17 @@ export default async function AuditDetailPage({ params }: Props) {
             )}
           </div>
         )}
+
+        {/* Danger Zone */}
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium text-destructive">Danger Zone</h3>
+              <p className="text-sm text-muted-foreground">Permanently delete this audit and all results</p>
+            </div>
+            <DeleteAuditButton auditId={audit.id} locationName={audit.location?.name || 'this audit'} />
+          </div>
+        </div>
 
         {/* Back Button */}
         <Link

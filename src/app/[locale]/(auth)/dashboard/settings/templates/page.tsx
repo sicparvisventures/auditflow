@@ -2,13 +2,60 @@ import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 
 import { getAuditTemplates } from '@/actions/supabase';
+import { FilterBar } from '@/components/filters';
 import { buttonVariants } from '@/components/ui/buttonVariants';
 import { TitleBar } from '@/features/dashboard/TitleBar';
 import { TemplatesPageHints } from '@/features/hints';
 
-export default async function TemplatesPage() {
+type Props = {
+  searchParams: { [key: string]: string | string[] | undefined };
+};
+
+export default async function TemplatesPage({ searchParams }: Props) {
   const t = await getTranslations('AuditTemplates');
-  const templates = await getAuditTemplates();
+  const allTemplates = await getAuditTemplates();
+
+  // Filter templates based on search params
+  let templates = allTemplates;
+  
+  const statusFilter = searchParams.status as string;
+  const searchFilter = searchParams.search as string;
+  
+  if (statusFilter === 'active') {
+    templates = templates.filter(t => t.is_active);
+  } else if (statusFilter === 'inactive') {
+    templates = templates.filter(t => !t.is_active);
+  }
+  
+  if (searchFilter) {
+    const searchLower = searchFilter.toLowerCase();
+    templates = templates.filter(t => 
+      t.name.toLowerCase().includes(searchLower) ||
+      t.description?.toLowerCase().includes(searchLower)
+    );
+  }
+
+  // Build filter config
+  const filterConfig = [
+    {
+      key: 'search',
+      label: 'Search',
+      type: 'search' as const,
+      placeholder: 'Search templates...',
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'select' as const,
+      placeholder: 'All statuses',
+      options: [
+        { value: 'active', label: 'Active' },
+        { value: 'inactive', label: 'Inactive' },
+      ],
+    },
+  ];
+
+  const hasFilters = statusFilter || searchFilter;
 
   return (
     <>
@@ -20,10 +67,14 @@ export default async function TemplatesPage() {
       {/* Contextual Hints */}
       <TemplatesPageHints hasTemplates={templates.length > 0} />
 
+      {/* Filters */}
+      <FilterBar filters={filterConfig} />
+
       {/* Actions Bar */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-muted-foreground">
           {templates.length} {templates.length === 1 ? 'template' : 'templates'}
+          {hasFilters && ' (filtered)'}
         </div>
         <Link
           href="/dashboard/settings/templates/new"
@@ -136,8 +187,14 @@ export default async function TemplatesPage() {
               <rect x="9" y="3" width="6" height="4" rx="2" />
             </svg>
           </div>
-          <h3 className="mb-2 text-lg font-semibold">No templates yet</h3>
-          <p className="mb-6 text-muted-foreground">Create your first audit template to get started</p>
+          <h3 className="mb-2 text-lg font-semibold">
+            {hasFilters ? 'No matching templates' : 'No templates yet'}
+          </h3>
+          <p className="mb-6 text-muted-foreground">
+            {hasFilters 
+              ? 'Try adjusting your filters' 
+              : 'Create your first audit template to get started'}
+          </p>
           <Link href="/dashboard/settings/templates/new" className={buttonVariants()}>
             {t('new_template')}
           </Link>
@@ -146,4 +203,3 @@ export default async function TemplatesPage() {
     </>
   );
 }
-

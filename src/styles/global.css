@@ -107,6 +107,18 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Hide Clerk branding elements */
+  .cl-internal-b3fm6y,
+  .cl-footer,
+  .cl-footerAction,
+  .cl-footerPages,
+  .cl-footerPagesLink,
+  .cl-internal-jq3v0g,
+  [class*='cl-footer'],
+  [class*='internal-b3fm6y'] {
+    display: none !important;
+  }
 }
 
 @layer utilities {

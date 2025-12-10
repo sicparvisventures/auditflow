@@ -19,6 +19,7 @@ type AuditData = {
     id: string;
     result: 'pass' | 'fail' | 'na';
     comments: string | null;
+    photo_urls: string[] | null;
     template_item: {
       title: string;
       category: { name: string } | null;
@@ -38,9 +39,8 @@ export function DownloadPdfButton({ audit }: { audit: AuditData }) {
   const handleDownload = async () => {
     setIsGenerating(true);
     try {
-      // Small delay to show loading state
-      await new Promise(resolve => setTimeout(resolve, 100));
-      generateAuditPdf(audit);
+      // Generate PDF with photos (async to load images)
+      await generateAuditPdf(audit);
     } catch (error) {
       console.error('Failed to generate PDF:', error);
     } finally {

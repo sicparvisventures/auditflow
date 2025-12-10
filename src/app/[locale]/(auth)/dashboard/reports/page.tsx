@@ -1,20 +1,38 @@
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 
-import { getActions, getAudits, getDashboardStats, getLocations } from '@/actions/supabase';
+import { getActions, getAudits, getDashboardStats, getLocations, type AuditFilters, type ActionFilters } from '@/actions/supabase';
+import { FilterBar } from '@/components/filters';
 import { TitleBar } from '@/features/dashboard/TitleBar';
 import { ReportsPageHints } from '@/features/hints';
 
 import { ExportReportButton } from './ExportReportButton';
 
-export default async function ReportsPage() {
+type Props = {
+  searchParams: { [key: string]: string | string[] | undefined };
+};
+
+export default async function ReportsPage({ searchParams }: Props) {
   const t = await getTranslations('Reports');
   
-  // Fetch all data for reports
-  const [audits, actions, locations, stats] = await Promise.all([
-    getAudits(),
-    getActions(),
-    getLocations(),
+  // Get locations for filter dropdown
+  const allLocations = await getLocations();
+  
+  // Parse search params into filters
+  const auditFilters: AuditFilters = {
+    locationId: searchParams.location as string,
+    dateFrom: searchParams.dateFrom as string,
+    dateTo: searchParams.dateTo as string,
+  };
+  
+  const actionFilters: ActionFilters = {
+    locationId: searchParams.location as string,
+  };
+  
+  // Fetch data with filters
+  const [audits, actions, stats] = await Promise.all([
+    getAudits(auditFilters),
+    getActions(actionFilters),
     getDashboardStats(),
   ]);
 
@@ -29,7 +47,7 @@ export default async function ReportsPage() {
   const monthlyStats = getMonthlyStats(audits);
 
   // Location performance
-  const locationPerformance = getLocationPerformance(audits, locations);
+  const locationPerformance = getLocationPerformance(audits, allLocations, actions);
 
   // Prepare data for export
   const reportData = {
@@ -38,37 +56,73 @@ export default async function ReportsPage() {
       ? Math.round((passedAudits.length / completedAudits.length) * 100) 
       : 0,
     openActions: pendingActions.length,
-    locationsCount: locations.length,
+    locationsCount: allLocations.length,
     monthlyStats,
     locationPerformance,
   };
 
+  // Build filter config
+  const filterConfig = [
+    {
+      key: 'location',
+      label: 'Location',
+      type: 'select' as const,
+      placeholder: 'All locations',
+      options: allLocations.map(loc => ({
+        value: loc.id,
+        label: loc.name,
+      })),
+    },
+    {
+      key: 'dateFrom',
+      label: 'From',
+      type: 'date' as const,
+      placeholder: 'From date',
+    },
+    {
+      key: 'dateTo',
+      label: 'To',
+      type: 'date' as const,
+      placeholder: 'To date',
+    },
+  ];
+
+  const hasFilters = Object.values({ ...auditFilters }).some(v => v && v !== 'all');
+  const selectedLocation = allLocations.find(l => l.id === searchParams.location);
+
   return (
     <>
       <TitleBar
-        title={t('title_bar')}
+        title={selectedLocation ? `Report: ${selectedLocation.name}` : t('title_bar')}
         description={t('title_bar_description')}
       />
 
       {/* Contextual Hints */}
       <ReportsPageHints />
 
-      {/* Export Actions */}
-      <div className="mb-6 flex justify-end">
-        <ExportReportButton data={reportData} />
+      {/* Filters & Export */}
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex-1">
+          <FilterBar filters={filterConfig} />
+        </div>
+        <div className="shrink-0">
+          <ExportReportButton data={reportData} />
+        </div>
       </div>
+
+      {hasFilters && (
+        <div className="mb-4 text-sm text-muted-foreground">
+          Showing filtered results
+          {searchParams.dateFrom && ` from ${searchParams.dateFrom}`}
+          {searchParams.dateTo && ` to ${searchParams.dateTo}`}
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard
           title="Total Audits"
           value={completedAudits.length.toString()}
-          icon={(
-            <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
-              <rect x="9" y="3" width="6" height="4" rx="2" />
-            </svg>
-          )}
         />
         <StatCard
           title="Pass Rate"
@@ -76,34 +130,15 @@ export default async function ReportsPage() {
             ? `${Math.round((passedAudits.length / completedAudits.length) * 100)}%` 
             : '-%'}
           color={stats.passRate >= 70 ? 'success' : stats.passRate > 0 ? 'warning' : 'default'}
-          icon={(
-            <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22,4 12,14.01 9,11.01" />
-            </svg>
-          )}
         />
         <StatCard
           title="Open Actions"
           value={pendingActions.length.toString()}
           color={pendingActions.length > 10 ? 'warning' : 'default'}
-          icon={(
-            <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12,6 12,12 16,14" />
-            </svg>
-          )}
         />
         <StatCard
           title="Locations"
-          value={locations.length.toString()}
-          icon={(
-            <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 21h18" />
-              <path d="M5 21V7l8-4v18" />
-              <path d="M19 21V11l-6-4" />
-            </svg>
-          )}
+          value={allLocations.length.toString()}
         />
       </div>
 
@@ -221,7 +256,7 @@ export default async function ReportsPage() {
                   <th className="pb-3 text-center font-medium">Audits</th>
                   <th className="pb-3 text-center font-medium">Pass Rate</th>
                   <th className="pb-3 text-center font-medium">Open Actions</th>
-                  <th className="pb-3 text-center font-medium">Last Audit</th>
+                  <th className="hidden pb-3 text-center font-medium sm:table-cell">Last Audit</th>
                 </tr>
               </thead>
               <tbody>
@@ -229,7 +264,7 @@ export default async function ReportsPage() {
                   <tr key={loc.id} className="border-b border-border last:border-0">
                     <td className="py-3">
                       <Link 
-                        href={`/dashboard/locations/${loc.id}`}
+                        href={`/dashboard/reports?location=${loc.id}`}
                         className="font-medium hover:text-primary"
                       >
                         {loc.name}
@@ -254,7 +289,7 @@ export default async function ReportsPage() {
                         <span className="text-muted-foreground">0</span>
                       )}
                     </td>
-                    <td className="py-3 text-center text-sm text-muted-foreground">
+                    <td className="hidden py-3 text-center text-sm text-muted-foreground sm:table-cell">
                       {loc.lastAudit || 'Never'}
                     </td>
                   </tr>
@@ -276,29 +311,22 @@ export default async function ReportsPage() {
 function StatCard({
   title,
   value,
-  icon,
   color = 'default',
 }: {
   title: string;
   value: string;
-  icon: React.ReactNode;
   color?: 'default' | 'success' | 'warning';
 }) {
   const colorClasses = {
-    default: 'text-muted-foreground',
-    success: 'text-green-500',
-    warning: 'text-yellow-500',
+    default: '',
+    success: 'text-green-600',
+    warning: 'text-yellow-600',
   };
 
   return (
     <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <span className={colorClasses[color]}>{icon}</span>
-      </div>
-      <div className="mt-2">
-        <div className="text-2xl font-bold">{value}</div>
-        <div className="text-xs text-muted-foreground">{title}</div>
-      </div>
+      <div className={`text-2xl font-bold ${colorClasses[color]}`}>{value}</div>
+      <div className="text-xs text-muted-foreground">{title}</div>
     </div>
   );
 }
@@ -338,18 +366,19 @@ function getMonthlyStats(audits: any[]) {
   }));
 }
 
-function getLocationPerformance(audits: any[], locations: any[]) {
+function getLocationPerformance(audits: any[], locations: any[], actions: any[]) {
   return locations.map(loc => {
     const locAudits = audits.filter(a => a.location_id === loc.id && a.status === 'completed');
     const passedAudits = locAudits.filter(a => a.passed);
     const lastAudit = locAudits[0];
+    const locActions = actions.filter(a => a.location_id === loc.id && !['completed', 'verified'].includes(a.status));
     
     return {
       id: loc.id,
       name: loc.name,
       totalAudits: locAudits.length,
       passRate: locAudits.length > 0 ? Math.round((passedAudits.length / locAudits.length) * 100) : 0,
-      openActions: 0, // Will be calculated separately
+      openActions: locActions.length,
       lastAudit: lastAudit ? new Date(lastAudit.audit_date).toLocaleDateString('nl-NL') : null,
     };
   }).sort((a, b) => b.totalAudits - a.totalAudits);

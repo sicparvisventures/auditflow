@@ -13,7 +13,7 @@ export default async function DashboardIndexPage() {
   const [stats, recentAudits, pendingActions] = await Promise.all([
     getDashboardStats(),
     getAudits(),
-    getActions('pending'),
+    getActions({ status: 'pending' }),
   ]);
 
   const hasData = stats.locationsCount > 0 || stats.totalAudits > 0;
@@ -33,46 +33,20 @@ export default async function DashboardIndexPage() {
         <KPICard
           title={t('kpi_total_audits')}
           value={stats.totalAudits.toString()}
-          icon={(
-            <svg className="size-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
-              <rect x="9" y="3" width="6" height="4" rx="2" />
-              <path d="m9 14 2 2 4-4" />
-            </svg>
-          )}
         />
         <KPICard
           title={t('kpi_pass_rate')}
           value={stats.totalAudits > 0 ? `${stats.passRate}%` : '-%'}
-          icon={(
-            <svg className="size-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22,4 12,14.01 9,11.01" />
-            </svg>
-          )}
           color={stats.passRate >= 70 ? 'success' : stats.passRate > 0 ? 'warning' : 'default'}
         />
         <KPICard
           title={t('kpi_open_actions')}
           value={stats.openActions.toString()}
-          icon={(
-            <svg className="size-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12,6 12,12 16,14" />
-            </svg>
-          )}
           color={stats.openActions > 5 ? 'warning' : 'default'}
         />
         <KPICard
           title={t('kpi_locations')}
           value={stats.locationsCount.toString()}
-          icon={(
-            <svg className="size-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 21h18" />
-              <path d="M5 21V7l8-4v18" />
-              <path d="M19 21V11l-6-4" />
-            </svg>
-          )}
         />
       </div>
 
@@ -193,30 +167,23 @@ export default async function DashboardIndexPage() {
 function KPICard({
   title,
   value,
-  icon,
   color = 'default',
 }: {
   title: string;
   value: string;
-  icon: React.ReactNode;
   color?: 'default' | 'success' | 'warning' | 'danger';
 }) {
   const colorClasses = {
-    default: 'text-muted-foreground',
-    success: 'text-green-500',
-    warning: 'text-yellow-500',
-    danger: 'text-red-500',
+    default: '',
+    success: 'text-green-600',
+    warning: 'text-yellow-600',
+    danger: 'text-red-600',
   };
 
   return (
     <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <span className={colorClasses[color]}>{icon}</span>
-      </div>
-      <div className="mt-2">
-        <div className="text-2xl font-bold">{value}</div>
-        <div className="text-xs text-muted-foreground">{title}</div>
-      </div>
+      <div className={`text-2xl font-bold ${colorClasses[color]}`}>{value}</div>
+      <div className="text-xs text-muted-foreground">{title}</div>
     </div>
   );
 }

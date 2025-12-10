@@ -7,6 +7,7 @@ import { TitleBar } from '@/features/dashboard/TitleBar';
 import { ActionDetailHints } from '@/features/hints';
 
 import { ActionResponseForm } from './ResponseForm';
+import { DeleteActionButton } from './DeleteActionButton';
 import { VerifyActionForm } from './VerifyForm';
 
 type Props = {
@@ -91,33 +92,103 @@ export default async function ActionDetailPage({ params }: Props) {
             <p className="mb-6 text-muted-foreground">{action.description}</p>
           )}
 
-          {/* Audit Reference */}
+          {/* Audit Context */}
           {action.audit && (
-            <div className="mb-6 flex items-center gap-4 rounded-lg bg-muted p-4">
-              <svg
-                className="size-5 text-muted-foreground"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
-                <rect x="9" y="3" width="6" height="4" rx="2" />
-              </svg>
-              <div>
-                <p className="text-sm font-medium">{t('from_audit')}</p>
-                <p className="text-sm text-muted-foreground">
-                  {new Date(action.audit.audit_date).toLocaleDateString('nl-NL')}
-                </p>
+            <div className="mb-6 rounded-lg border border-border bg-muted/50">
+              {/* Audit Header */}
+              <div className="flex items-center gap-4 border-b border-border p-4">
+                <svg
+                  className="size-5 text-muted-foreground"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+                  <rect x="9" y="3" width="6" height="4" rx="2" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{t('from_audit')}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(action.audit.audit_date).toLocaleDateString('nl-NL', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric'
+                    })}
+                  </p>
+                </div>
+                <span className={`rounded-full px-2 py-1 text-xs font-medium ${
+                  action.audit.passed
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-700'
+                }`}>
+                  {Math.round(action.audit.pass_percentage)}%
+                </span>
+                <Link 
+                  href={`/dashboard/audits/${action.audit_id}`}
+                  className="text-sm text-primary hover:underline"
+                >
+                  View Audit →
+                </Link>
               </div>
-              <Link 
-                href={`/dashboard/audits/${action.audit_id}`}
-                className="ml-auto text-sm text-primary hover:underline"
-              >
-                View Audit
-              </Link>
+              
+              {/* Failed Item Details */}
+              {action.audit_result && (
+                <div className="p-4">
+                  <div className="mb-2 flex items-start gap-2">
+                    <span className="mt-0.5 flex size-5 items-center justify-center rounded-full bg-red-100 text-red-600">
+                      <svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </span>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">
+                        {action.audit_result.template_item?.title}
+                      </p>
+                      {action.audit_result.template_item?.category?.name && (
+                        <p className="text-xs text-muted-foreground">
+                          Category: {action.audit_result.template_item.category.name}
+                        </p>
+                      )}
+                    </div>
+                    {action.audit_result.template_item?.weight && (
+                      <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                        {action.audit_result.template_item.weight} pts
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Inspector comment */}
+                  {action.audit_result.comments && (
+                    <div className="mt-3 rounded bg-yellow-50 p-3 text-sm dark:bg-yellow-900/20">
+                      <p className="mb-1 text-xs font-medium text-yellow-700 dark:text-yellow-500">Inspector Note:</p>
+                      <p className="text-yellow-800 dark:text-yellow-200">{action.audit_result.comments}</p>
+                    </div>
+                  )}
+                  
+                  {/* Evidence photos from audit */}
+                  {action.audit_result.photo_urls && action.audit_result.photo_urls.length > 0 && (
+                    <div className="mt-3">
+                      <p className="mb-2 text-xs font-medium text-muted-foreground">Evidence Photos:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {action.audit_result.photo_urls.map((url: string, idx: number) => (
+                          <a
+                            key={idx}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block size-16 overflow-hidden rounded-lg border border-border"
+                          >
+                            <img src={url} alt={`Evidence ${idx + 1}`} className="size-full object-cover" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -146,8 +217,38 @@ export default async function ActionDetailPage({ params }: Props) {
             <h3 className="mb-4 font-semibold">{t('manager_response')}</h3>
             <div className="rounded-lg bg-muted p-4">
               <p className="text-sm">{action.response_text}</p>
+              
+              {/* Response Photos */}
+              {action.response_photos && action.response_photos.length > 0 && (
+                <div className="mt-4">
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">Proof Photos</p>
+                  <div className="flex flex-wrap gap-2">
+                    {action.response_photos.map((url: string, index: number) => (
+                      <a
+                        key={index}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group relative block size-20 overflow-hidden rounded-lg border border-border"
+                      >
+                        <img
+                          src={url}
+                          alt={`Response photo ${index + 1}`}
+                          className="size-full object-cover transition-transform group-hover:scale-110"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/40">
+                          <svg className="size-5 text-white opacity-0 transition-opacity group-hover:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                          </svg>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               {action.responded_at && (
-                <p className="mt-2 text-xs text-muted-foreground">
+                <p className="mt-3 text-xs text-muted-foreground">
                   Responded: {new Date(action.responded_at).toLocaleString('nl-NL')}
                 </p>
               )}
@@ -164,6 +265,17 @@ export default async function ActionDetailPage({ params }: Props) {
         {action.status === 'completed' && (
           <VerifyActionForm actionId={action.id} />
         )}
+
+        {/* Danger Zone */}
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium text-destructive">Danger Zone</h3>
+              <p className="text-sm text-muted-foreground">Permanently delete this action</p>
+            </div>
+            <DeleteActionButton actionId={action.id} actionTitle={action.title} />
+          </div>
+        </div>
 
         {/* Back Button */}
         <Link

@@ -1,28 +1,95 @@
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 
-import { getAudits } from '@/actions/supabase';
+import { getAudits, getLocations, type AuditFilters } from '@/actions/supabase';
+import { FilterBar } from '@/components/filters';
 import { buttonVariants } from '@/components/ui/buttonVariants';
 import { TitleBar } from '@/features/dashboard/TitleBar';
 import { AuditsPageHints } from '@/features/hints';
 
-const statusColors = {
+const statusColors: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800',
   in_progress: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30',
   completed: 'bg-green-100 text-green-700 dark:bg-green-900/30',
   cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30',
 };
 
-const statusLabels = {
+const statusLabels: Record<string, string> = {
   draft: 'Draft',
   in_progress: 'In Progress',
   completed: 'Completed',
   cancelled: 'Cancelled',
 };
 
-export default async function AuditsPage() {
+type Props = {
+  searchParams: { [key: string]: string | string[] | undefined };
+};
+
+export default async function AuditsPage({ searchParams }: Props) {
   const t = await getTranslations('Audits');
-  const audits = await getAudits();
+  
+  // Get locations for filter dropdown
+  const locations = await getLocations();
+  
+  // Parse search params into filters
+  const filters: AuditFilters = {
+    status: searchParams.status as string,
+    locationId: searchParams.location as string,
+    dateFrom: searchParams.dateFrom as string,
+    dateTo: searchParams.dateTo as string,
+    search: searchParams.search as string,
+    passed: searchParams.passed as string,
+  };
+  
+  const audits = await getAudits(filters);
+
+  // Build filter config
+  const filterConfig = [
+    {
+      key: 'search',
+      label: 'Search',
+      type: 'search' as const,
+      placeholder: 'Search audits...',
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'select' as const,
+      placeholder: 'All statuses',
+      options: [
+        { value: 'draft', label: 'Draft' },
+        { value: 'in_progress', label: 'In Progress' },
+        { value: 'completed', label: 'Completed' },
+        { value: 'cancelled', label: 'Cancelled' },
+      ],
+    },
+    {
+      key: 'location',
+      label: 'Location',
+      type: 'select' as const,
+      placeholder: 'All locations',
+      options: locations.map(loc => ({
+        value: loc.id,
+        label: loc.name,
+      })),
+    },
+    {
+      key: 'passed',
+      label: 'Result',
+      type: 'select' as const,
+      placeholder: 'All results',
+      options: [
+        { value: 'true', label: 'Passed' },
+        { value: 'false', label: 'Failed' },
+      ],
+    },
+    {
+      key: 'dateFrom',
+      label: 'From',
+      type: 'date' as const,
+      placeholder: 'From date',
+    },
+  ];
 
   return (
     <>
@@ -34,10 +101,14 @@ export default async function AuditsPage() {
       {/* Contextual Hints */}
       <AuditsPageHints hasAudits={audits.length > 0} />
 
+      {/* Filters */}
+      <FilterBar filters={filterConfig} />
+
       {/* Actions Bar */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-muted-foreground">
           {audits.length} {audits.length === 1 ? 'audit' : 'audits'}
+          {Object.values(filters).some(v => v && v !== 'all') && ' (filtered)'}
         </div>
         <Link
           href="/dashboard/audits/new"
@@ -136,8 +207,16 @@ export default async function AuditsPage() {
               <path d="M9 16h6" />
             </svg>
           </div>
-          <h3 className="mb-2 text-lg font-semibold">{t('no_audits')}</h3>
-          <p className="mb-6 text-muted-foreground">{t('start_audit')}</p>
+          <h3 className="mb-2 text-lg font-semibold">
+            {Object.values(filters).some(v => v && v !== 'all') 
+              ? 'No matching audits' 
+              : t('no_audits')}
+          </h3>
+          <p className="mb-6 text-muted-foreground">
+            {Object.values(filters).some(v => v && v !== 'all')
+              ? 'Try adjusting your filters'
+              : t('start_audit')}
+          </p>
           <Link href="/dashboard/audits/new" className={buttonVariants()}>
             {t('new_audit')}
           </Link>

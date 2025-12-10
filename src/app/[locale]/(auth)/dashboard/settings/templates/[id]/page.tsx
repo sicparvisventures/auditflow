@@ -108,8 +108,11 @@ export default async function TemplateDetailPage({ params }: Props) {
                   </div>
                   <div className="flex-1">
                     <h4 className="font-medium">{category.name}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {category.items?.length || 0} items
+                    {category.description && (
+                      <p className="text-sm text-muted-foreground">{category.description}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {category.items?.length || 0} items • Weight: {category.weight || 1}x
                     </p>
                   </div>
                 </div>
@@ -122,19 +125,29 @@ export default async function TemplateDetailPage({ params }: Props) {
                         {itemIndex + 1}
                       </span>
                       <div className="flex-1">
-                        <p className="font-medium">{item.title}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-medium">{item.title}</p>
+                          <span className="shrink-0 rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                            {item.weight || 1} pts
+                          </span>
+                        </div>
                         {item.description && (
-                          <p className="text-sm text-muted-foreground">{item.description}</p>
+                          <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
                         )}
                         <div className="mt-2 flex flex-wrap gap-2">
                           {item.requires_photo && (
-                            <span className="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                            <span className="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-900/30">
                               Photo required
                             </span>
                           )}
                           {item.creates_action_on_fail && (
-                            <span className="rounded bg-orange-100 px-2 py-0.5 text-xs text-orange-700">
-                              Creates action on fail
+                            <span className="rounded bg-orange-100 px-2 py-0.5 text-xs text-orange-700 dark:bg-orange-900/30">
+                              Action: {item.action_urgency || 'medium'} • {item.action_deadline_days || 7}d
+                            </span>
+                          )}
+                          {item.requires_comment_on_fail && (
+                            <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-700 dark:bg-gray-800">
+                              Comment on fail
                             </span>
                           )}
                         </div>

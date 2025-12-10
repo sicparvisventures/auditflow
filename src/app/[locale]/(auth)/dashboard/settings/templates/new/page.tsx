@@ -13,16 +13,32 @@ import { NewTemplateHints } from '@/features/hints';
 type ChecklistItem = {
   id: string;
   title: string;
-  requiresPhoto: boolean;
-  createsAction: boolean;
+  description: string;
   weight: number;
+  requiresPhoto: boolean;
+  requiresCommentOnFail: boolean;
+  createsAction: boolean;
+  actionUrgency: 'low' | 'medium' | 'high' | 'critical';
+  actionDeadlineDays: number;
 };
 
 type Category = {
   id: string;
   name: string;
+  description: string;
   weight: number;
   items: ChecklistItem[];
+};
+
+const defaultItem: Omit<ChecklistItem, 'id'> = {
+  title: '',
+  description: '',
+  weight: 1,
+  requiresPhoto: false,
+  requiresCommentOnFail: true,
+  createsAction: true,
+  actionUrgency: 'medium',
+  actionDeadlineDays: 7,
 };
 
 export default function NewTemplatePage() {
@@ -42,12 +58,14 @@ export default function NewTemplatePage() {
     {
       id: '1',
       name: '',
+      description: '',
       weight: 1,
-      items: [{ id: '1-1', title: '', requiresPhoto: false, createsAction: true, weight: 1 }],
+      items: [{ id: '1-1', ...defaultItem }],
     },
   ]);
 
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['1']);
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
   const addCategory = () => {
     const newId = `${Date.now()}`;
@@ -56,8 +74,9 @@ export default function NewTemplatePage() {
       {
         id: newId,
         name: '',
+        description: '',
         weight: 1,
-        items: [{ id: `${newId}-1`, title: '', requiresPhoto: false, createsAction: true, weight: 1 }],
+        items: [{ id: `${newId}-1`, ...defaultItem }],
       },
     ]);
     setExpandedCategories([...expandedCategories, newId]);
@@ -73,18 +92,10 @@ export default function NewTemplatePage() {
     setCategories(
       categories.map(cat => {
         if (cat.id === categoryId) {
+          const newItemId = `${categoryId}-${Date.now()}`;
           return {
             ...cat,
-            items: [
-              ...cat.items,
-              {
-                id: `${categoryId}-${Date.now()}`,
-                title: '',
-                requiresPhoto: false,
-                createsAction: true,
-                weight: 1,
-              },
-            ],
+            items: [...cat.items, { id: newItemId, ...defaultItem }],
           };
         }
         return cat;
@@ -132,6 +143,12 @@ export default function NewTemplatePage() {
     );
   };
 
+  const toggleItemSettings = (itemId: string) => {
+    setExpandedItems(prev =>
+      prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId],
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -159,12 +176,17 @@ export default function NewTemplatePage() {
     formData.set('categories', JSON.stringify(
       validCategories.map(c => ({
         name: c.name,
+        description: c.description,
         weight: c.weight,
         items: c.items.filter(i => i.title).map(i => ({
           title: i.title,
-          requiresPhoto: i.requiresPhoto,
-          createsAction: i.createsAction,
+          description: i.description,
           weight: i.weight,
+          requiresPhoto: i.requiresPhoto,
+          requiresCommentOnFail: i.requiresCommentOnFail,
+          createsAction: i.createsAction,
+          actionUrgency: i.actionUrgency,
+          actionDeadlineDays: i.actionDeadlineDays,
         })),
       })),
     ));
@@ -179,13 +201,22 @@ export default function NewTemplatePage() {
     }
   };
 
+  // Calculate totals
   const totalItems = categories.reduce((acc, cat) => acc + cat.items.filter(i => i.title).length, 0);
+  const totalWeight = categories.reduce((acc, cat) => {
+    const catWeight = cat.weight;
+    const itemsWeight = cat.items.filter(i => i.title).reduce((sum, item) => sum + item.weight, 0);
+    return acc + (catWeight * itemsWeight);
+  }, 0);
+  const maxPossibleScore = categories.reduce((acc, cat) => {
+    return acc + cat.items.filter(i => i.title).reduce((sum, item) => sum + (cat.weight * item.weight), 0);
+  }, 0);
 
   return (
     <>
       <TitleBar
         title={t('new_template')}
-        description="Create a new audit template with categories and checklist items"
+        description="Create a new audit template with categories, items, and scoring weights"
       />
 
       {/* Contextual Hints */}
@@ -246,6 +277,9 @@ export default function NewTemplatePage() {
                   onChange={e => setTemplateData({ ...templateData, passThreshold: Number(e.target.value) })}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Audits scoring below this percentage will fail
+                </p>
               </div>
               <div className="flex items-center gap-3 pt-6">
                 <input
@@ -299,15 +333,29 @@ export default function NewTemplatePage() {
                 <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
                   {catIndex + 1}
                 </div>
-                <input
-                  type="text"
-                  required
-                  value={category.name}
-                  onChange={e => updateCategory(category.id, 'name', e.target.value)}
-                  onClick={e => e.stopPropagation()}
-                  placeholder="Category name (e.g. Hygiene & Cleanliness)"
-                  className="flex-1 border-0 bg-transparent p-0 text-sm font-medium focus:outline-none focus:ring-0"
-                />
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    required
+                    value={category.name}
+                    onChange={e => updateCategory(category.id, 'name', e.target.value)}
+                    onClick={e => e.stopPropagation()}
+                    placeholder="Category name (e.g. Hygiene & Cleanliness)"
+                    className="w-full border-0 bg-transparent p-0 text-sm font-medium focus:outline-none focus:ring-0"
+                  />
+                </div>
+                <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                  <label className="text-xs text-muted-foreground">Weight:</label>
+                  <input
+                    type="number"
+                    min="0.1"
+                    max="10"
+                    step="0.1"
+                    value={category.weight}
+                    onChange={e => updateCategory(category.id, 'weight', Number(e.target.value))}
+                    className="w-16 rounded border border-input bg-background px-2 py-1 text-center text-xs"
+                  />
+                </div>
                 <span className="text-sm text-muted-foreground">{category.items.filter(i => i.title).length} items</span>
                 {categories.length > 1 && (
                   <button
@@ -327,6 +375,17 @@ export default function NewTemplatePage() {
               {/* Category Items */}
               {expandedCategories.includes(category.id) && (
                 <div className="border-t border-border p-4">
+                  {/* Category description */}
+                  <div className="mb-4">
+                    <input
+                      type="text"
+                      value={category.description}
+                      onChange={e => updateCategory(category.id, 'description', e.target.value)}
+                      placeholder="Category description (optional)..."
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    />
+                  </div>
+
                   <div className="space-y-3">
                     {category.items.map((item, itemIndex) => (
                       <div key={item.id} className="rounded-lg border border-border bg-muted/50 p-4">
@@ -335,14 +394,30 @@ export default function NewTemplatePage() {
                             {itemIndex + 1}
                           </span>
                           <div className="flex-1 space-y-3">
-                            <input
-                              type="text"
-                              value={item.title}
-                              onChange={e => updateItem(category.id, item.id, 'title', e.target.value)}
-                              placeholder="Checklist item title..."
-                              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                            />
-                            <div className="flex flex-wrap gap-4">
+                            {/* Title and weight row */}
+                            <div className="flex gap-3">
+                              <input
+                                type="text"
+                                value={item.title}
+                                onChange={e => updateItem(category.id, item.id, 'title', e.target.value)}
+                                placeholder="Checklist item title..."
+                                className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                              />
+                              <div className="flex items-center gap-1">
+                                <label className="text-xs text-muted-foreground">Pts:</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="10"
+                                  value={item.weight}
+                                  onChange={e => updateItem(category.id, item.id, 'weight', Number(e.target.value))}
+                                  className="w-14 rounded border border-input bg-background px-2 py-2 text-center text-sm"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Quick settings row */}
+                            <div className="flex flex-wrap items-center gap-4">
                               <label className="flex items-center gap-2 text-sm">
                                 <input
                                   type="checkbox"
@@ -359,9 +434,80 @@ export default function NewTemplatePage() {
                                   onChange={e => updateItem(category.id, item.id, 'createsAction', e.target.checked)}
                                   className="size-4 rounded border-input"
                                 />
-                                Create action on fail
+                                Action on fail
                               </label>
+                              <button
+                                type="button"
+                                onClick={() => toggleItemSettings(item.id)}
+                                className="text-xs text-primary hover:underline"
+                              >
+                                {expandedItems.includes(item.id) ? 'Hide settings' : 'More settings'}
+                              </button>
                             </div>
+
+                            {/* Expanded settings */}
+                            {expandedItems.includes(item.id) && (
+                              <div className="rounded-lg border border-border bg-background p-3 space-y-3">
+                                {/* Description */}
+                                <div>
+                                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                                    Item Description / Instructions
+                                  </label>
+                                  <textarea
+                                    rows={2}
+                                    value={item.description}
+                                    onChange={e => updateItem(category.id, item.id, 'description', e.target.value)}
+                                    placeholder="Instructions or details for the inspector..."
+                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                  />
+                                </div>
+
+                                {/* Action settings */}
+                                {item.createsAction && (
+                                  <div className="grid gap-3 sm:grid-cols-2">
+                                    <div>
+                                      <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                                        Action Urgency
+                                      </label>
+                                      <select
+                                        value={item.actionUrgency}
+                                        onChange={e => updateItem(category.id, item.id, 'actionUrgency', e.target.value)}
+                                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                      >
+                                        <option value="low">Low</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="high">High</option>
+                                        <option value="critical">Critical</option>
+                                      </select>
+                                    </div>
+                                    <div>
+                                      <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                                        Deadline (days)
+                                      </label>
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        max="90"
+                                        value={item.actionDeadlineDays}
+                                        onChange={e => updateItem(category.id, item.id, 'actionDeadlineDays', Number(e.target.value))}
+                                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Comment requirement */}
+                                <label className="flex items-center gap-2 text-sm">
+                                  <input
+                                    type="checkbox"
+                                    checked={item.requiresCommentOnFail}
+                                    onChange={e => updateItem(category.id, item.id, 'requiresCommentOnFail', e.target.checked)}
+                                    className="size-4 rounded border-input"
+                                  />
+                                  Require comment when failed
+                                </label>
+                              </div>
+                            )}
                           </div>
                           {category.items.length > 1 && (
                             <button
@@ -399,12 +545,24 @@ export default function NewTemplatePage() {
 
         {/* Summary */}
         <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-          <div className="flex items-center justify-between text-sm">
-            <span>Template Summary:</span>
-            <span className="font-medium">
-              {categories.filter(c => c.name).length} categories, {totalItems} items
-            </span>
+          <h4 className="mb-2 text-sm font-medium">Template Summary</h4>
+          <div className="grid gap-2 text-sm sm:grid-cols-3">
+            <div>
+              <span className="text-muted-foreground">Categories:</span>{' '}
+              <span className="font-medium">{categories.filter(c => c.name).length}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Total Items:</span>{' '}
+              <span className="font-medium">{totalItems}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Max Score:</span>{' '}
+              <span className="font-medium">{maxPossibleScore.toFixed(1)} pts</span>
+            </div>
           </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Pass threshold: {templateData.passThreshold}% ({Math.round(maxPossibleScore * templateData.passThreshold / 100)} pts required to pass)
+          </p>
         </div>
 
         {/* Actions */}
@@ -427,4 +585,3 @@ export default function NewTemplatePage() {
     </>
   );
 }
-

@@ -21,6 +21,9 @@ const UserProfilePage = (props: { params: { locale: string } }) => {
           elements: {
             rootBox: 'w-full',
             cardBox: 'w-full flex',
+            footer: 'hidden',
+            footerAction: 'hidden',
+            footerPages: 'hidden',
           },
         }}
       />

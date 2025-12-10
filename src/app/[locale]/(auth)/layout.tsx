@@ -43,6 +43,9 @@ export default function AuthLayout(props: {
         elements: {
           formButtonPrimary: 'bg-primary hover:bg-primary/90',
           card: 'shadow-lg',
+          footer: 'hidden',
+          footerAction: 'hidden',
+          footerPages: 'hidden',
         },
       }}
     >

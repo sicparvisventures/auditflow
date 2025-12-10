@@ -14,6 +14,7 @@ type AuditData = {
     id: string;
     result: 'pass' | 'fail' | 'na';
     comments: string | null;
+    photo_urls: string[] | null;
     template_item: {
       title: string;
       category: { name: string } | null;
@@ -51,7 +52,49 @@ const DANGER_COLOR: [number, number, number] = [239, 68, 68];
 const MUTED_COLOR: [number, number, number] = [107, 114, 128];
 const DARK_COLOR: [number, number, number] = [17, 24, 39];
 
-export function generateAuditPdf(audit: AuditData): void {
+// Helper to load image as base64 for PDF embedding
+async function loadImageAsBase64(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+// Preload all images from audit results
+async function preloadAuditImages(audit: AuditData): Promise<Map<string, string>> {
+  const imageMap = new Map<string, string>();
+  const imageUrls: string[] = [];
+
+  audit.results?.forEach((result) => {
+    if (result.photo_urls && result.photo_urls.length > 0) {
+      imageUrls.push(...result.photo_urls);
+    }
+  });
+
+  // Load images in parallel (limit to 20 to avoid memory issues)
+  const urlsToLoad = imageUrls.slice(0, 20);
+  const loadPromises = urlsToLoad.map(async (url) => {
+    const base64 = await loadImageAsBase64(url);
+    if (base64) {
+      imageMap.set(url, base64);
+    }
+  });
+
+  await Promise.all(loadPromises);
+  return imageMap;
+}
+
+export async function generateAuditPdf(audit: AuditData): Promise<void> {
+  // Preload images first
+  const imageMap = await preloadAuditImages(audit);
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   let y = 20;
@@ -252,7 +295,10 @@ export function generateAuditPdf(audit: AuditData): void {
 
     // Category items
     items.forEach((item) => {
-      checkPageBreak(15);
+      // Calculate needed space (base + comments + photos)
+      const hasPhotos = item.photo_urls && item.photo_urls.length > 0;
+      const neededSpace = 15 + (item.comments ? 8 : 0) + (hasPhotos ? 35 : 0);
+      checkPageBreak(neededSpace);
 
       // Result indicator
       if (item.result === 'pass') {
@@ -279,6 +325,48 @@ export function generateAuditPdf(audit: AuditData): void {
         doc.setTextColor(...MUTED_COLOR);
         doc.setFontSize(8);
         doc.text(`Note: ${item.comments.substring(0, 80)}`, 35, y);
+      }
+
+      // Photos
+      if (hasPhotos) {
+        y += 8;
+        const photoSize = 25;
+        const maxPhotosPerRow = 5;
+        const photosToShow = item.photo_urls!.slice(0, maxPhotosPerRow);
+        
+        photosToShow.forEach((photoUrl: string, photoIndex: number) => {
+          const base64Image = imageMap.get(photoUrl);
+          if (base64Image) {
+            const xPos = 35 + (photoIndex * (photoSize + 3));
+            try {
+              doc.addImage(base64Image, 'JPEG', xPos, y, photoSize, photoSize);
+            } catch {
+              // If image fails to add, draw a placeholder
+              doc.setDrawColor(200, 200, 200);
+              doc.setFillColor(245, 245, 245);
+              doc.rect(xPos, y, photoSize, photoSize, 'FD');
+              doc.setFontSize(6);
+              doc.setTextColor(...MUTED_COLOR);
+              doc.text('Photo', xPos + photoSize/2, y + photoSize/2, { align: 'center' });
+            }
+          } else {
+            // Draw placeholder for failed loads
+            const xPos = 35 + (photoIndex * (photoSize + 3));
+            doc.setDrawColor(200, 200, 200);
+            doc.setFillColor(245, 245, 245);
+            doc.rect(xPos, y, photoSize, photoSize, 'FD');
+          }
+        });
+        
+        y += photoSize + 5;
+        
+        // Show count if more photos than displayed
+        if (item.photo_urls!.length > maxPhotosPerRow) {
+          doc.setFontSize(7);
+          doc.setTextColor(...MUTED_COLOR);
+          doc.text(`+${item.photo_urls!.length - maxPhotosPerRow} more photos`, 35, y);
+          y += 5;
+        }
       }
 
       y += 10;
