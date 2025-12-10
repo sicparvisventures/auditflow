@@ -203,11 +203,6 @@ export default function NewTemplatePage() {
 
   // Calculate totals
   const totalItems = categories.reduce((acc, cat) => acc + cat.items.filter(i => i.title).length, 0);
-  const totalWeight = categories.reduce((acc, cat) => {
-    const catWeight = cat.weight;
-    const itemsWeight = cat.items.filter(i => i.title).reduce((sum, item) => sum + item.weight, 0);
-    return acc + (catWeight * itemsWeight);
-  }, 0);
   const maxPossibleScore = categories.reduce((acc, cat) => {
     return acc + cat.items.filter(i => i.title).reduce((sum, item) => sum + (cat.weight * item.weight), 0);
   }, 0);
