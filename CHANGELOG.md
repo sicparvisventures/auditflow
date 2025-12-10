@@ -1,3 +1,15 @@
+# [1.4.0](https://github.com/sicparvisventures/auditflow/compare/v1.3.0...v1.4.0) (2025-12-10)
+
+
+### Bug Fixes
+
+* ensure urgency is never undefined in email template ([74d3436](https://github.com/sicparvisventures/auditflow/commit/74d34368988527e55c8157d8fd478127985805d7))
+
+
+### Features
+
+* email notifications, location managers, and template editing ([3a0c25c](https://github.com/sicparvisventures/auditflow/commit/3a0c25cf0be1c339b2ce7aafabadef87aa731dff))
+
 # [1.3.0](https://github.com/sicparvisventures/auditflow/compare/v1.2.0...v1.3.0) (2025-12-10)
 
 
