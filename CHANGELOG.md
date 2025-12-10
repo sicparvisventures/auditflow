@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/sicparvisventures/auditflow/compare/v1.4.0...v1.5.0) (2025-12-10)
+
+
+### Features
+
+* role-based access control and new landing pages ([49a8cba](https://github.com/sicparvisventures/auditflow/commit/49a8cbac0d705aec6819e7ed4cef2d0638e41021))
+
 # [1.4.0](https://github.com/sicparvisventures/auditflow/compare/v1.3.0...v1.4.0) (2025-12-10)
 
 
