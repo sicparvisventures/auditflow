@@ -1,3 +1,15 @@
+# [1.3.0](https://github.com/sicparvisventures/auditflow/compare/v1.2.0...v1.3.0) (2025-12-10)
+
+
+### Bug Fixes
+
+* remove unused totalWeight variable ([ec07516](https://github.com/sicparvisventures/auditflow/commit/ec075160d320614deda04b05dd6e8de13284e388))
+
+
+### Features
+
+* enhanced filtering, PDF photos, and action context ([ac647e2](https://github.com/sicparvisventures/auditflow/commit/ac647e24c56c15e5e7c1f035a57772538f8361e7))
+
 # [1.2.0](https://github.com/sicparvisventures/auditflow/compare/v1.1.3...v1.2.0) (2025-12-09)
 
 
