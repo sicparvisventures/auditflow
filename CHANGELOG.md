@@ -1,3 +1,11 @@
+## [1.5.1](https://github.com/sicparvisventures/auditflow/compare/v1.5.0...v1.5.1) (2025-12-10)
+
+
+### Bug Fixes
+
+* add missing PricingPage template and translations ([51b48dc](https://github.com/sicparvisventures/auditflow/commit/51b48dc8b534e65ba35918fedadfbbe76f72fe86))
+* remove unused t variable in accept-invitation page ([439cd47](https://github.com/sicparvisventures/auditflow/commit/439cd47f09a2314812d2dd5f3cacbbc18e6b9c84))
+
 # [1.5.0](https://github.com/sicparvisventures/auditflow/compare/v1.4.0...v1.5.0) (2025-12-10)
 
 
