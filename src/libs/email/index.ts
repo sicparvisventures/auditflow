@@ -162,14 +162,15 @@ function getAuditCompletedEmailHtml(data: AuditCompletedEmailData, recipientName
 }
 
 function getActionCreatedEmailHtml(data: ActionCreatedEmailData, recipientName: string): string {
-  const urgencyColors: Record<string, { bg: string; text: string; label: string }> = {
+  const urgencyColors = {
     low: { bg: '#dbeafe', text: '#1d4ed8', label: 'Laag' },
     medium: { bg: '#fef3c7', text: '#d97706', label: 'Medium' },
     high: { bg: '#fed7aa', text: '#ea580c', label: 'Hoog' },
     critical: { bg: '#fee2e2', text: '#dc2626', label: 'Kritiek' },
-  };
+  } as const;
 
-  const urgency = urgencyColors[data.urgency] || urgencyColors.medium;
+  const defaultUrgency = { bg: '#fef3c7', text: '#d97706', label: 'Medium' };
+  const urgency = urgencyColors[data.urgency as keyof typeof urgencyColors] ?? defaultUrgency;
 
   return `
 <!DOCTYPE html>
