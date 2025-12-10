@@ -76,6 +76,7 @@ export function ActionResponseForm({ actionId }: { actionId: string }) {
           photos={photos}
           onPhotosChange={setPhotos}
           maxPhotos={5}
+          actionId={actionId}
         />
       </div>
 

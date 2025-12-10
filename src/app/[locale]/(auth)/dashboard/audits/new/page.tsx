@@ -372,28 +372,30 @@ export default function NewAuditPage() {
             }
           />
 
-          {/* Photo Upload */}
-          {currentItem.requires_photo && (
-            <div className="mt-4">
-              <label className="mb-2 block text-sm font-medium">
-                Photo Evidence {currentItem.requires_photo && <span className="text-destructive">*</span>}
-              </label>
-              <PhotoUploadInline
-                photos={results[currentItem.id]?.photoUrls || []}
-                onPhotosChange={(photos) =>
-                  setResults(prev => ({
-                    ...prev,
-                    [currentItem.id]: {
-                      ...prev[currentItem.id],
-                      result: prev[currentItem.id]?.result || null,
-                      comments: prev[currentItem.id]?.comments || '',
-                      photoUrls: photos,
-                    },
-                  }))
-                }
-              />
-            </div>
-          )}
+          {/* Photo Upload - Always available */}
+          <div className="mt-4">
+            <label className="mb-2 block text-sm font-medium">
+              Photo Evidence {currentItem.requires_photo && <span className="text-destructive">*</span>}
+              {!currentItem.requires_photo && <span className="text-muted-foreground"> (optional)</span>}
+            </label>
+            <PhotoUploadInline
+              photos={results[currentItem.id]?.photoUrls || []}
+              itemId={currentItem.id}
+              auditId={auditId || undefined}
+              maxPhotos={5}
+              onPhotosChange={(photos) =>
+                setResults(prev => ({
+                  ...prev,
+                  [currentItem.id]: {
+                    ...prev[currentItem.id],
+                    result: prev[currentItem.id]?.result || null,
+                    comments: prev[currentItem.id]?.comments || '',
+                    photoUrls: photos,
+                  },
+                }))
+              }
+            />
+          </div>
         </div>
 
         {/* Navigation Buttons */}
@@ -593,30 +595,50 @@ export default function NewAuditPage() {
 // Inline Photo Upload Component for Audit Items
 function PhotoUploadInline({ 
   photos, 
-  onPhotosChange 
+  onPhotosChange,
+  itemId,
+  auditId,
+  maxPhotos = 5,
 }: { 
   photos: string[]; 
   onPhotosChange: (photos: string[]) => void;
+  itemId: string;
+  auditId?: string;
+  maxPhotos?: number;
 }) {
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     setIsUploading(true);
+    setUploadError(null);
     const newUrls: string[] = [];
 
     for (const file of Array.from(files)) {
-      if (!file.type.startsWith('image/')) continue;
-      if (file.size > 10 * 1024 * 1024) continue;
+      if (!file.type.startsWith('image/')) {
+        setUploadError('Only image files are allowed');
+        continue;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        setUploadError('File size must be less than 10MB');
+        continue;
+      }
 
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('itemId', itemId);
+      if (auditId) {
+        formData.append('auditId', auditId);
+      }
 
       const result = await uploadPhoto(formData, 'audit-photos');
       if (result.success && result.url) {
         newUrls.push(result.url);
+      } else if (result.error) {
+        setUploadError(result.error);
       }
     }
 
@@ -635,6 +657,9 @@ function PhotoUploadInline({
 
   return (
     <div className="space-y-2">
+      {uploadError && (
+        <p className="text-xs text-destructive">{uploadError}</p>
+      )}
       {photos.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {photos.map((url, i) => (
@@ -651,7 +676,7 @@ function PhotoUploadInline({
           ))}
         </div>
       )}
-      {photos.length < 3 && (
+      {photos.length < maxPhotos && (
         <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border p-3 text-sm hover:border-primary">
           <input
             type="file"
@@ -661,7 +686,7 @@ function PhotoUploadInline({
             disabled={isUploading}
             className="sr-only"
           />
-          {isUploading ? 'Uploading...' : `Add photo (${photos.length}/3)`}
+          {isUploading ? 'Uploading...' : `Add photo (${photos.length}/${maxPhotos})`}
         </label>
       )}
     </div>

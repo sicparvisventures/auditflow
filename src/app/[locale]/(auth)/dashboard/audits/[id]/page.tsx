@@ -63,10 +63,28 @@ export default async function AuditDetailPage({ params }: Props) {
     na: 'text-gray-400',
   };
 
-  // Get inspector name
-  const inspectorName = audit.inspector 
-    ? `${audit.inspector.first_name || ''} ${audit.inspector.last_name || ''}`.trim() || audit.inspector.email
-    : 'Unknown';
+  // Get inspector name - prefer full_name, then first+last, then email (but not placeholder)
+  const getInspectorDisplayName = () => {
+    if (!audit.inspector) return 'Unknown';
+    
+    // Use full_name if available
+    if (audit.inspector.full_name && audit.inspector.full_name.trim()) {
+      return audit.inspector.full_name.trim();
+    }
+    
+    // Try first + last name
+    const fullName = `${audit.inspector.first_name || ''} ${audit.inspector.last_name || ''}`.trim();
+    if (fullName) return fullName;
+    
+    // Use email, but not if it's a placeholder
+    if (audit.inspector.email && !audit.inspector.email.includes('@placeholder.local')) {
+      return audit.inspector.email;
+    }
+    
+    return 'Unknown';
+  };
+  
+  const inspectorName = getInspectorDisplayName();
 
   // Count results
   const passedCount = audit.results?.filter((r: any) => r.result === 'pass').length || 0;

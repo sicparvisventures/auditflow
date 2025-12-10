@@ -11,6 +11,10 @@ type PhotoUploadProps = {
   onPhotosChange: (photos: string[]) => void;
   maxPhotos?: number;
   required?: boolean;
+  // Context for organized storage paths
+  actionId?: string;
+  auditId?: string;
+  itemId?: string;
 };
 
 export function PhotoUpload({
@@ -19,6 +23,9 @@ export function PhotoUpload({
   onPhotosChange,
   maxPhotos = 5,
   required = false,
+  actionId,
+  auditId,
+  itemId,
 }: PhotoUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +64,11 @@ export function PhotoUpload({
 
           const formData = new FormData();
           formData.append('file', file);
+          
+          // Add context for organized storage
+          if (actionId) formData.append('actionId', actionId);
+          if (auditId) formData.append('auditId', auditId);
+          if (itemId) formData.append('itemId', itemId);
 
           const result = await uploadPhoto(formData, bucket);
           

@@ -16,6 +16,9 @@ type Props = {
 export default async function LocationDetailPage({ params }: Props) {
   const t = await getTranslations('Locations');
   const location = await getLocation(params.id);
+  
+  // Manager is now included in location data
+  const manager = location?.manager;
 
   if (!location) {
     notFound();
@@ -93,6 +96,54 @@ export default async function LocationDetailPage({ params }: Props) {
               </dd>
             </div>
           </dl>
+        </div>
+
+        {/* Manager Card */}
+        <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-semibold">{t('manager')}</h3>
+            <Link
+              href={`/dashboard/locations/${location.id}/edit`}
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              <svg className="mr-2 size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+              {t('edit_location')}
+            </Link>
+          </div>
+          
+          {manager ? (
+            <div className="flex items-center gap-4">
+              <div className="flex size-12 items-center justify-center rounded-full bg-primary/10">
+                <span className="text-lg font-semibold text-primary">
+                  {(manager.first_name?.[0] || manager.email[0] || 'M').toUpperCase()}
+                </span>
+              </div>
+              <div>
+                <p className="font-medium">{manager.full_name || manager.email}</p>
+                <p className="text-sm text-muted-foreground">{manager.email}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4 rounded-lg border border-dashed border-border p-4">
+              <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                <svg className="size-6 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-medium text-muted-foreground">Geen manager toegewezen</p>
+                <p className="text-sm text-muted-foreground">
+                  <Link href={`/dashboard/locations/${location.id}/edit`} className="text-primary hover:underline">
+                    Wijs een manager toe
+                  </Link>
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Quick Actions */}

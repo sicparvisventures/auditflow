@@ -126,6 +126,49 @@ export default async function LocationsPage({ searchParams }: Props) {
                 </span>
               </div>
 
+              {/* Manager Info */}
+              <div className="mb-4 flex items-center gap-3 rounded-md bg-muted/50 p-3">
+                {location.manager ? (
+                  <>
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                      {location.manager.avatar_url ? (
+                        <img 
+                          src={location.manager.avatar_url} 
+                          alt={location.manager.full_name || 'Manager'} 
+                          className="size-9 rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-sm font-semibold text-primary">
+                          {(location.manager.first_name?.[0] || location.manager.email[0] || 'M').toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {location.manager.full_name || location.manager.email}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {t('manager')}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted">
+                      <svg className="size-5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-muted-foreground">
+                        Geen manager
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+
               {/* Contact Info */}
               {(location.phone || location.email) && (
                 <div className="mb-4 space-y-1 text-sm text-muted-foreground">

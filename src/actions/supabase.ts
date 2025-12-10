@@ -1,13 +1,26 @@
 'use server';
 
-import { auth } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 import { revalidatePath } from 'next/cache';
 
+import {
+  sendActionCreatedEmail,
+  sendAuditCompletedEmail,
+} from '@/libs/email';
 import { createServiceClient, isSupabaseConfigured } from '@/libs/supabase/server';
 
 // ============================================
 // Types
 // ============================================
+
+export type LocationManager = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  full_name: string | null;
+  email: string;
+  avatar_url: string | null;
+};
 
 export type Location = {
   id: string;
@@ -23,6 +36,8 @@ export type Location = {
   status: string;
   created_at: string;
   updated_at: string;
+  // Joined data
+  manager?: LocationManager | null;
 };
 
 export type AuditTemplate = {
@@ -155,23 +170,51 @@ async function ensureUserExists(): Promise<string | null> {
     // Try to get existing user
     const { data: existingUser } = await supabase
       .from('users')
-      .select('id')
+      .select('id, email')
       .eq('clerk_user_id', clerkUserId)
       .single();
     
-    if (existingUser) {
+    // If user exists and has a real email (not placeholder), return the ID
+    if (existingUser && !existingUser.email.includes('@placeholder.local')) {
       return existingUser.id;
     }
     
-    // User doesn't exist, create them
-    // Get user info from Clerk session claims if available
+    // Get actual user data from Clerk
+    const clerk = await clerkClient();
+    const clerkUser = await clerk.users.getUser(clerkUserId);
+    
+    const userData = {
+      clerk_user_id: clerkUserId,
+      email: clerkUser.emailAddresses[0]?.emailAddress || `${clerkUserId}@placeholder.local`,
+      first_name: clerkUser.firstName || null,
+      last_name: clerkUser.lastName || null,
+      avatar_url: clerkUser.imageUrl || null,
+      role: 'admin' as const,
+    };
+    
+    if (existingUser) {
+      // Update existing user with real data from Clerk
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          email: userData.email,
+          first_name: userData.first_name,
+          last_name: userData.last_name,
+          avatar_url: userData.avatar_url,
+        })
+        .eq('id', existingUser.id);
+      
+      if (updateError) {
+        console.error('Failed to update user:', updateError);
+      }
+      
+      return existingUser.id;
+    }
+    
+    // User doesn't exist, create them with real Clerk data
     const { data: newUser, error } = await supabase
       .from('users')
-      .insert([{
-        clerk_user_id: clerkUserId,
-        email: `${clerkUserId}@placeholder.local`, // Will be updated by webhook
-        role: 'admin',
-      }])
+      .insert([userData])
       .select('id')
       .single();
     
@@ -206,7 +249,17 @@ export async function getLocations(filters?: LocationFilters): Promise<Location[
 
     let query = supabase
       .from('locations')
-      .select('*')
+      .select(`
+        *,
+        manager:users!locations_manager_id_fkey(
+          id,
+          first_name,
+          last_name,
+          full_name,
+          email,
+          avatar_url
+        )
+      `)
       .eq('organization_id', orgId)
       .order('name');
 
@@ -228,13 +281,15 @@ export async function getLocations(filters?: LocationFilters): Promise<Location[
 
     let results = data || [];
     
-    // Client-side search filter
+    // Client-side search filter (also search by manager name)
     if (filters?.search) {
       const searchLower = filters.search.toLowerCase();
       results = results.filter(location => 
         location.name?.toLowerCase().includes(searchLower) ||
         location.address?.toLowerCase().includes(searchLower) ||
-        location.city?.toLowerCase().includes(searchLower)
+        location.city?.toLowerCase().includes(searchLower) ||
+        location.manager?.full_name?.toLowerCase().includes(searchLower) ||
+        location.manager?.email?.toLowerCase().includes(searchLower)
       );
     }
 
@@ -250,7 +305,17 @@ export async function getLocation(id: string): Promise<Location | null> {
 
   const { data, error } = await supabase
     .from('locations')
-    .select('*')
+    .select(`
+      *,
+      manager:users!locations_manager_id_fkey(
+        id,
+        first_name,
+        last_name,
+        full_name,
+        email,
+        avatar_url
+      )
+    `)
     .eq('id', id)
     .single();
 
@@ -304,6 +369,10 @@ export async function updateLocation(id: string, formData: FormData): Promise<{ 
   try {
     const supabase = createServiceClient();
 
+    // Get manager_id and handle empty string as null
+    const managerIdValue = formData.get('managerId') as string;
+    const managerId = managerIdValue && managerIdValue.trim() !== '' ? managerIdValue : null;
+
     const updates = {
       name: formData.get('name') as string,
       address: formData.get('address') as string || null,
@@ -312,15 +381,20 @@ export async function updateLocation(id: string, formData: FormData): Promise<{ 
       country: formData.get('country') as string || 'Netherlands',
       phone: formData.get('phone') as string || null,
       email: formData.get('email') as string || null,
-      manager_id: formData.get('managerId') as string || null,
+      manager_id: managerId,
     };
+
+    console.log('Updating location with manager_id:', managerId);
 
     const { error } = await supabase
       .from('locations')
       .update(updates)
       .eq('id', id);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error updating location:', error);
+      throw error;
+    }
 
     revalidatePath('/dashboard/locations');
     revalidatePath(`/dashboard/locations/${id}`);
@@ -482,6 +556,126 @@ export async function createAuditTemplate(formData: FormData): Promise<{ success
   }
 }
 
+export async function updateAuditTemplate(formData: FormData): Promise<{ success: boolean; error?: string }> {
+  try {
+    const templateId = formData.get('id') as string;
+    if (!templateId) {
+      return { success: false, error: 'Template ID is required' };
+    }
+
+    const supabase = createServiceClient();
+
+    // Update template basic info
+    const templateData = {
+      name: formData.get('name') as string,
+      description: formData.get('description') as string || null,
+      pass_threshold: Number(formData.get('passThreshold')) || 70,
+      requires_photos: formData.get('requiresPhotos') === 'true',
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error: templateError } = await supabase
+      .from('audit_templates')
+      .update(templateData)
+      .eq('id', templateId);
+
+    if (templateError) throw templateError;
+
+    // Process categories
+    const categoriesJson = formData.get('categories') as string;
+    if (categoriesJson) {
+      const categories = JSON.parse(categoriesJson);
+
+      for (let i = 0; i < categories.length; i++) {
+        const cat = categories[i];
+
+        if (cat.isDeleted && cat.id) {
+          // Delete category and its items
+          await supabase.from('audit_template_items').delete().eq('category_id', cat.id);
+          await supabase.from('audit_template_categories').delete().eq('id', cat.id);
+          continue;
+        }
+
+        let categoryId = cat.id;
+
+        if (cat.id) {
+          // Update existing category
+          await supabase
+            .from('audit_template_categories')
+            .update({
+              name: cat.name,
+              description: cat.description || null,
+              weight: cat.weight || 1,
+              sort_order: i,
+            })
+            .eq('id', cat.id);
+        } else {
+          // Create new category
+          const { data: newCategory, error: catError } = await supabase
+            .from('audit_template_categories')
+            .insert([{
+              template_id: templateId,
+              name: cat.name,
+              description: cat.description || null,
+              weight: cat.weight || 1,
+              sort_order: i,
+            }])
+            .select()
+            .single();
+
+          if (catError) throw catError;
+          categoryId = newCategory.id;
+        }
+
+        // Process items for this category
+        if (cat.items && cat.items.length > 0) {
+          for (let j = 0; j < cat.items.length; j++) {
+            const item = cat.items[j];
+
+            if (item.isDeleted && item.id) {
+              // Delete item
+              await supabase.from('audit_template_items').delete().eq('id', item.id);
+              continue;
+            }
+
+            const itemData = {
+              title: item.title,
+              description: item.description || null,
+              weight: item.weight || 1,
+              requires_photo: item.requiresPhoto || false,
+              requires_comment_on_fail: item.requiresCommentOnFail !== false,
+              creates_action_on_fail: item.createsAction !== false,
+              action_urgency: item.actionUrgency || 'medium',
+              action_deadline_days: item.actionDeadlineDays || 7,
+              sort_order: j,
+            };
+
+            if (item.id) {
+              // Update existing item
+              await supabase
+                .from('audit_template_items')
+                .update(itemData)
+                .eq('id', item.id);
+            } else {
+              // Create new item
+              await supabase
+                .from('audit_template_items')
+                .insert([{ ...itemData, category_id: categoryId }]);
+            }
+          }
+        }
+      }
+    }
+
+    revalidatePath('/dashboard/settings/templates');
+    revalidatePath(`/dashboard/settings/templates/${templateId}`);
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating template:', error);
+    return { success: false, error: 'Failed to update template' };
+  }
+}
+
 export async function deleteAuditTemplate(id: string): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = createServiceClient();
@@ -620,7 +814,7 @@ export async function getAudit(id: string) {
       *,
       location:locations(id, name, address, city),
       template:audit_templates(id, name, pass_threshold),
-      inspector:users!audits_inspector_id_fkey(id, first_name, last_name, email)
+      inspector:users!audits_inspector_id_fkey(id, clerk_user_id, first_name, last_name, full_name, email, avatar_url)
     `)
     .eq('id', id)
     .single();
@@ -631,7 +825,7 @@ export async function getAudit(id: string) {
   }
 
   // Get results with template items and photos
-  const { data: results } = await supabase
+  const { data: results, error: resultsError } = await supabase
     .from('audit_results')
     .select(`
       id,
@@ -640,13 +834,17 @@ export async function getAudit(id: string) {
       comments,
       photo_urls,
       template_item:audit_template_items(
-        id, 
+        id,
         title,
         requires_photo,
         category:audit_template_categories(id, name)
       )
     `)
     .eq('audit_id', id);
+
+  if (resultsError) {
+    console.error('Error fetching audit results:', resultsError);
+  }
 
   // Get actions created for this audit
   const { data: auditActions } = await supabase
@@ -712,14 +910,19 @@ export async function saveAuditResults(auditId: string, results: any[]): Promise
       .eq('audit_id', auditId);
 
     // Insert all results
-    const resultsData = results.map(result => ({
-      audit_id: auditId,
-      template_item_id: result.templateItemId,
-      result: result.result || 'na',
-      score: result.result === 'pass' ? 1 : 0,
-      comments: result.comments || null,
-      photo_urls: result.photoUrls || [],
-    }));
+    const resultsData = results.map(result => {
+      // Ensure photo_urls is always an array
+      const photoUrls = Array.isArray(result.photoUrls) ? result.photoUrls : [];
+      
+      return {
+        audit_id: auditId,
+        template_item_id: result.templateItemId,
+        result: result.result || 'na',
+        score: result.result === 'pass' ? 1 : 0,
+        comments: result.comments || null,
+        photo_urls: photoUrls,
+      };
+    });
 
     if (resultsData.length > 0) {
       const { error } = await supabase
@@ -743,10 +946,14 @@ export async function completeAudit(auditId: string): Promise<{ success: boolean
   try {
     const supabase = createServiceClient();
 
-    // Get the audit details
+    // Get the audit details with location and manager info
     const { data: audit } = await supabase
       .from('audits')
-      .select('*, location:locations(id, name, manager_id)')
+      .select(`
+        *, 
+        location:locations(id, name, manager_id, email),
+        inspector:users!audits_inspector_id_fkey(id, first_name, last_name, full_name, email)
+      `)
       .eq('id', auditId)
       .single();
 
@@ -825,6 +1032,17 @@ export async function completeAudit(auditId: string): Promise<{ success: boolean
 
     const inspectorId = await ensureUserExists();
 
+    // Get location manager for email notifications
+    let managerUser = null;
+    if (audit.location?.manager_id) {
+      const { data: manager } = await supabase
+        .from('users')
+        .select('id, email, first_name, last_name, full_name')
+        .eq('id', audit.location.manager_id)
+        .single();
+      managerUser = manager;
+    }
+
     for (const failedItem of failedItems) {
       // Get deadline days from template or default to 7
       const deadlineDays = failedItem.template_item?.action_deadline_days || 7;
@@ -857,7 +1075,55 @@ export async function completeAudit(auditId: string): Promise<{ success: boolean
         deadline: deadlineDate.toISOString().split('T')[0],
       };
 
-      await supabase.from('actions').insert([actionData]);
+      const { data: newAction } = await supabase
+        .from('actions')
+        .insert([actionData])
+        .select()
+        .single();
+
+      // Send email notification for each action created
+      if (newAction && managerUser?.email) {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        await sendActionCreatedEmail(
+          { 
+            email: managerUser.email, 
+            name: managerUser.full_name || managerUser.first_name || 'Manager' 
+          },
+          {
+            actionId: newAction.id,
+            actionTitle: newAction.title,
+            locationName: audit.location?.name || 'Unknown Location',
+            urgency: newAction.urgency,
+            deadline: newAction.deadline 
+              ? new Date(newAction.deadline).toLocaleDateString('nl-NL')
+              : null,
+            description: newAction.description,
+            createdBy: audit.inspector?.full_name || 'Inspector',
+            dashboardUrl: `${appUrl}/dashboard/actions/${newAction.id}`,
+          }
+        );
+      }
+    }
+
+    // Send audit completed email to location manager
+    if (managerUser?.email) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      await sendAuditCompletedEmail(
+        { 
+          email: managerUser.email, 
+          name: managerUser.full_name || managerUser.first_name || 'Manager' 
+        },
+        {
+          auditId,
+          locationName: audit.location?.name || 'Unknown Location',
+          auditDate: new Date(audit.audit_date).toLocaleDateString('nl-NL'),
+          passPercentage,
+          passed,
+          totalActions: failedItems.length,
+          inspectorName: audit.inspector?.full_name || 'Inspector',
+          dashboardUrl: `${appUrl}/dashboard/audits/${auditId}`,
+        }
+      );
     }
 
     revalidatePath('/dashboard/audits');
@@ -1219,6 +1485,126 @@ export async function getTeamMembers() {
 }
 
 // ============================================
+// ORGANIZATION MEMBERS (from Clerk)
+// ============================================
+
+export type OrganizationMember = {
+  id: string;
+  clerkUserId: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  fullName: string;
+  imageUrl: string | null;
+  role: string;
+  // Internal Supabase user data if synced
+  supabaseUserId?: string;
+};
+
+/**
+ * Get organization members directly from Clerk
+ * This ensures we get the latest members even if webhook sync is delayed
+ * Also creates Supabase users for any Clerk users that don't exist yet
+ */
+export async function getOrganizationMembers(): Promise<OrganizationMember[]> {
+  try {
+    const { orgId } = await auth();
+    if (!orgId) return [];
+
+    const clerk = await clerkClient();
+    const memberships = await clerk.organizations.getOrganizationMembershipList({
+      organizationId: orgId,
+      limit: 100,
+    });
+
+    const supabase = createServiceClient();
+    
+    // Get Supabase user IDs for these Clerk users
+    const clerkUserIds = memberships.data
+      .map(m => m.publicUserData?.userId)
+      .filter((id): id is string => Boolean(id));
+    
+    const { data: supabaseUsers } = await supabase
+      .from('users')
+      .select('id, clerk_user_id')
+      .in('clerk_user_id', clerkUserIds);
+
+    const supabaseUserMap = new Map(
+      supabaseUsers?.map(u => [u.clerk_user_id, u.id]) || []
+    );
+
+    // Find Clerk users that don't have a Supabase user yet and create them
+    const missingClerkUserIds = clerkUserIds.filter(id => !supabaseUserMap.has(id));
+    
+    if (missingClerkUserIds.length > 0) {
+      // Create missing users in Supabase
+      for (const membership of memberships.data) {
+        const userData = membership.publicUserData;
+        const clerkUserId = userData?.userId;
+        
+        if (clerkUserId && missingClerkUserIds.includes(clerkUserId)) {
+          const { data: newUser } = await supabase
+            .from('users')
+            .insert({
+              clerk_user_id: clerkUserId,
+              email: userData?.identifier || `${clerkUserId}@placeholder.local`,
+              first_name: userData?.firstName || null,
+              last_name: userData?.lastName || null,
+              avatar_url: userData?.imageUrl || null,
+              role: 'viewer', // Default role, will be updated by webhook
+            })
+            .select('id')
+            .single();
+          
+          if (newUser) {
+            supabaseUserMap.set(clerkUserId, newUser.id);
+          }
+        }
+      }
+    }
+
+    return memberships.data.map((membership) => {
+      const userData = membership.publicUserData;
+      const firstName = userData?.firstName || '';
+      const lastName = userData?.lastName || '';
+      const clerkUserId = userData?.userId || '';
+      
+      return {
+        id: membership.id,
+        clerkUserId,
+        email: userData?.identifier || '',
+        firstName: firstName || null,
+        lastName: lastName || null,
+        fullName: `${firstName} ${lastName}`.trim() || userData?.identifier || 'Unknown',
+        imageUrl: userData?.imageUrl || null,
+        role: membership.role,
+        supabaseUserId: supabaseUserMap.get(clerkUserId),
+      };
+    });
+  } catch (error) {
+    console.error('Error fetching organization members:', error);
+    return [];
+  }
+}
+
+/**
+ * Get organization members who can be assigned as location managers
+ * (members with 'org:member' or 'member' role)
+ */
+export async function getLocationManagerCandidates(): Promise<OrganizationMember[]> {
+  const members = await getOrganizationMembers();
+  
+  // Members with 'org:member' role are the ones who should manage locations
+  // But also include all members since any member could potentially be a manager
+  return members.filter(m => 
+    m.role === 'org:member' || 
+    m.role === 'member' || 
+    m.role === 'org:admin' || 
+    m.role === 'admin'
+  );
+}
+
+// ============================================
 // PHOTO UPLOAD
 // ============================================
 
@@ -1237,6 +1623,11 @@ export async function uploadPhoto(
       return { success: false, error: 'No file provided' };
     }
 
+    // Get optional context for organized storage
+    const itemId = formData.get('itemId') as string;
+    const auditId = formData.get('auditId') as string;
+    const actionId = formData.get('actionId') as string;
+
     // Validate file type
     if (!file.type.startsWith('image/')) {
       return { success: false, error: 'Only image files are allowed' };
@@ -1249,9 +1640,25 @@ export async function uploadPhoto(
 
     const supabase = createServiceClient();
 
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-    const filePath = `${orgId}/${fileName}`;
+    const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(2, 9);
+    const fileName = `${timestamp}-${randomId}.${fileExt}`;
+    
+    // Build organized file path based on context
+    // Structure: {orgId}/{auditId|actionId}/{itemId}/{filename}
+    let filePath: string;
+    
+    if (bucket === 'audit-photos' && auditId && itemId) {
+      // Audit photos: organized by audit and checklist item
+      filePath = `${orgId}/audits/${auditId}/items/${itemId}/${fileName}`;
+    } else if (bucket === 'action-photos' && actionId) {
+      // Action photos: organized by action
+      filePath = `${orgId}/actions/${actionId}/${fileName}`;
+    } else {
+      // Fallback: just org folder
+      filePath = `${orgId}/${fileName}`;
+    }
 
     // Convert File to Buffer for server-side upload
     const arrayBuffer = await file.arrayBuffer();
@@ -1303,6 +1710,71 @@ export async function deletePhoto(
   } catch (error) {
     console.error('Error deleting photo:', error);
     return { success: false, error: 'Failed to delete photo' };
+  }
+}
+
+// ============================================
+// SYNC PLACEHOLDER USERS
+// ============================================
+
+/**
+ * Sync all users with placeholder emails to get their real data from Clerk
+ * Call this function to fix existing users with placeholder data
+ */
+export async function syncPlaceholderUsers(): Promise<{ success: boolean; synced: number; error?: string }> {
+  try {
+    const supabase = createServiceClient();
+    const clerk = await clerkClient();
+    
+    // Find all users with placeholder emails
+    const { data: placeholderUsers, error: fetchError } = await supabase
+      .from('users')
+      .select('id, clerk_user_id, email')
+      .like('email', '%@placeholder.local');
+    
+    if (fetchError) {
+      console.error('Error fetching placeholder users:', fetchError);
+      return { success: false, synced: 0, error: 'Failed to fetch users' };
+    }
+    
+    if (!placeholderUsers || placeholderUsers.length === 0) {
+      return { success: true, synced: 0 };
+    }
+    
+    let syncedCount = 0;
+    
+    for (const user of placeholderUsers) {
+      try {
+        // Get real user data from Clerk
+        const clerkUser = await clerk.users.getUser(user.clerk_user_id);
+        
+        if (clerkUser) {
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({
+              email: clerkUser.emailAddresses[0]?.emailAddress || user.email,
+              first_name: clerkUser.firstName || null,
+              last_name: clerkUser.lastName || null,
+              avatar_url: clerkUser.imageUrl || null,
+            })
+            .eq('id', user.id);
+          
+          if (!updateError) {
+            syncedCount++;
+            console.log(`Synced user ${user.clerk_user_id}: ${clerkUser.emailAddresses[0]?.emailAddress}`);
+          } else {
+            console.error(`Failed to update user ${user.id}:`, updateError);
+          }
+        }
+      } catch (clerkError) {
+        console.error(`Failed to fetch Clerk user ${user.clerk_user_id}:`, clerkError);
+      }
+    }
+    
+    return { success: true, synced: syncedCount };
+  } catch (error) {
+    console.error('Error syncing placeholder users:', error);
+    return { success: false, synced: 0, error: 'Failed to sync users' };
   }
 }
 
