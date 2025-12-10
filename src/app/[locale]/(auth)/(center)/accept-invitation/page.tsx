@@ -1,14 +1,8 @@
 import { SignUp } from '@clerk/nextjs';
-import { getTranslations } from 'next-intl/server';
 
 import { getI18nPath } from '@/utils/Helpers';
 
-export async function generateMetadata(props: { params: { locale: string } }) {
-  const t = await getTranslations({
-    locale: props.params.locale,
-    namespace: 'SignUp',
-  });
-
+export function generateMetadata() {
   return {
     title: 'Accept Invitation - AuditFlow',
     description: 'Accept your invitation to join an organization on AuditFlow',
