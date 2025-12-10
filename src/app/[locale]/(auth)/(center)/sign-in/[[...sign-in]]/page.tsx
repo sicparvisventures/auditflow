@@ -18,6 +18,9 @@ export async function generateMetadata(props: { params: { locale: string } }) {
 const SignInPage = (props: { params: { locale: string } }) => (
   <SignIn
     path={getI18nPath('/sign-in', props.params.locale)}
+    signUpUrl={getI18nPath('/sign-up', props.params.locale)}
+    forceRedirectUrl="/dashboard"
+    fallbackRedirectUrl="/dashboard"
     appearance={{
       elements: {
         footer: 'hidden',

@@ -231,6 +231,130 @@ async function ensureUserExists(): Promise<string | null> {
 }
 
 // ============================================
+// USER PERMISSIONS & ROLE-BASED ACCESS
+// ============================================
+
+export type UserPermissions = {
+  userId: string | null;
+  supabaseUserId: string | null;
+  clerkRole: string;
+  isAdmin: boolean;
+  isInspector: boolean;
+  isMember: boolean;
+  assignedLocationIds: string[];
+  canViewAllLocations: boolean;
+};
+
+/**
+ * Get current user's permissions including their Clerk role and assigned locations
+ * - Admin: Can see everything in the organization
+ * - Inspector: Can see all locations but focused on audits
+ * - Member: Can only see their assigned location(s)
+ */
+export async function getUserPermissions(): Promise<UserPermissions> {
+  const defaultPermissions: UserPermissions = {
+    userId: null,
+    supabaseUserId: null,
+    clerkRole: 'member',
+    isAdmin: false,
+    isInspector: false,
+    isMember: true,
+    assignedLocationIds: [],
+    canViewAllLocations: false,
+  };
+
+  try {
+    const authData = await auth();
+    const clerkUserId = authData.userId;
+    const clerkOrgId = authData.orgId;
+    
+    if (!clerkUserId || !clerkOrgId) {
+      return defaultPermissions;
+    }
+
+    // Get user's role from Clerk organization membership
+    const clerk = await clerkClient();
+    let clerkRole = 'member';
+    
+    try {
+      const memberships = await clerk.organizations.getOrganizationMembershipList({
+        organizationId: clerkOrgId,
+      });
+      
+      const userMembership = memberships.data.find(
+        m => m.publicUserData?.userId === clerkUserId
+      );
+      
+      if (userMembership) {
+        clerkRole = userMembership.role || 'member';
+      }
+    } catch (e) {
+      console.error('Error getting Clerk membership:', e);
+    }
+
+    // Determine role flags
+    const isAdmin = clerkRole === 'org:admin' || clerkRole === 'admin';
+    const isInspector = clerkRole === 'org:inspector' || clerkRole === 'inspector';
+    const isMember = !isAdmin && !isInspector;
+
+    // Get Supabase user ID
+    const supabase = createServiceClient();
+    const { data: user } = await supabase
+      .from('users')
+      .select('id')
+      .eq('clerk_user_id', clerkUserId)
+      .single();
+
+    const supabaseUserId = user?.id || null;
+
+    // Get assigned locations (locations where this user is the manager)
+    let assignedLocationIds: string[] = [];
+    
+    if (supabaseUserId) {
+      const { data: locations } = await supabase
+        .from('locations')
+        .select('id')
+        .eq('manager_id', supabaseUserId);
+      
+      assignedLocationIds = locations?.map(l => l.id) || [];
+    }
+
+    // Admins and inspectors can view all locations
+    const canViewAllLocations = isAdmin || isInspector;
+
+    return {
+      userId: clerkUserId,
+      supabaseUserId,
+      clerkRole,
+      isAdmin,
+      isInspector,
+      isMember,
+      assignedLocationIds,
+      canViewAllLocations,
+    };
+  } catch (error) {
+    console.error('Error getting user permissions:', error);
+    return defaultPermissions;
+  }
+}
+
+/**
+ * Filter location IDs based on user permissions
+ * Returns null if user can view all, or array of allowed location IDs
+ */
+async function getAccessibleLocationIds(): Promise<string[] | null> {
+  const permissions = await getUserPermissions();
+  
+  // Admins and inspectors can see all
+  if (permissions.canViewAllLocations) {
+    return null;
+  }
+  
+  // Members can only see their assigned locations
+  return permissions.assignedLocationIds;
+}
+
+// ============================================
 // LOCATIONS
 // ============================================
 
@@ -246,6 +370,9 @@ export async function getLocations(filters?: LocationFilters): Promise<Location[
     if (!orgId) return [];
 
     const supabase = createServiceClient();
+    
+    // Get accessible location IDs based on user permissions
+    const accessibleLocationIds = await getAccessibleLocationIds();
 
     let query = supabase
       .from('locations')
@@ -263,11 +390,20 @@ export async function getLocations(filters?: LocationFilters): Promise<Location[
       .eq('organization_id', orgId)
       .order('name');
 
+    // Apply role-based location filter (members only see assigned locations)
+    if (accessibleLocationIds !== null) {
+      if (accessibleLocationIds.length === 0) {
+        // User has no assigned locations - return empty
+        return [];
+      }
+      query = query.in('id', accessibleLocationIds);
+    }
+
     // Apply filters
     if (filters?.status && filters.status !== 'all') {
       query = query.eq('status', filters.status);
     }
-    
+
     if (filters?.city && filters.city !== 'all') {
       query = query.eq('city', filters.city);
     }
@@ -280,11 +416,11 @@ export async function getLocations(filters?: LocationFilters): Promise<Location[
     }
 
     let results = data || [];
-    
+
     // Client-side search filter (also search by manager name)
     if (filters?.search) {
       const searchLower = filters.search.toLowerCase();
-      results = results.filter(location => 
+      results = results.filter(location =>
         location.name?.toLowerCase().includes(searchLower) ||
         location.address?.toLowerCase().includes(searchLower) ||
         location.city?.toLowerCase().includes(searchLower) ||
@@ -745,8 +881,11 @@ export async function getAudits(filters?: AuditFilters): Promise<Audit[]> {
   try {
     const orgId = await getOrganizationId();
     if (!orgId) return [];
-    
+
     const supabase = createServiceClient();
+    
+    // Get accessible location IDs based on user permissions
+    const accessibleLocationIds = await getAccessibleLocationIds();
 
     let query = supabase
       .from('audits')
@@ -758,23 +897,31 @@ export async function getAudits(filters?: AuditFilters): Promise<Audit[]> {
       .eq('organization_id', orgId)
       .order('audit_date', { ascending: false });
 
+    // Apply role-based location filter (members only see their locations' audits)
+    if (accessibleLocationIds !== null) {
+      if (accessibleLocationIds.length === 0) {
+        return [];
+      }
+      query = query.in('location_id', accessibleLocationIds);
+    }
+
     // Apply filters
     if (filters?.status && filters.status !== 'all') {
       query = query.eq('status', filters.status);
     }
-    
+
     if (filters?.locationId && filters.locationId !== 'all') {
       query = query.eq('location_id', filters.locationId);
     }
-    
+
     if (filters?.dateFrom) {
       query = query.gte('audit_date', filters.dateFrom);
     }
-    
+
     if (filters?.dateTo) {
       query = query.lte('audit_date', filters.dateTo);
     }
-    
+
     if (filters?.passed === 'true') {
       query = query.eq('passed', true);
     } else if (filters?.passed === 'false') {
@@ -1176,8 +1323,11 @@ export async function getActions(filters?: ActionFilters): Promise<Action[]> {
   try {
     const orgId = await getOrganizationId();
     if (!orgId) return [];
-    
+
     const supabase = createServiceClient();
+    
+    // Get accessible location IDs based on user permissions
+    const accessibleLocationIds = await getAccessibleLocationIds();
 
     let query = supabase
       .from('actions')
@@ -1188,15 +1338,23 @@ export async function getActions(filters?: ActionFilters): Promise<Action[]> {
       .eq('organization_id', orgId)
       .order('created_at', { ascending: false });
 
+    // Apply role-based location filter (members only see their locations' actions)
+    if (accessibleLocationIds !== null) {
+      if (accessibleLocationIds.length === 0) {
+        return [];
+      }
+      query = query.in('location_id', accessibleLocationIds);
+    }
+
     // Apply filters
     if (filters?.status && filters.status !== 'all') {
       query = query.eq('status', filters.status);
     }
-    
+
     if (filters?.urgency && filters.urgency !== 'all') {
       query = query.eq('urgency', filters.urgency);
     }
-    
+
     if (filters?.locationId && filters.locationId !== 'all') {
       query = query.eq('location_id', filters.locationId);
     }
@@ -1209,17 +1367,17 @@ export async function getActions(filters?: ActionFilters): Promise<Action[]> {
     }
 
     let results = data || [];
-    
+
     // Client-side filters
     if (filters?.search) {
       const searchLower = filters.search.toLowerCase();
-      results = results.filter(action => 
+      results = results.filter(action =>
         action.title?.toLowerCase().includes(searchLower) ||
         action.description?.toLowerCase().includes(searchLower) ||
         action.location?.name?.toLowerCase().includes(searchLower)
       );
     }
-    
+
     // Filter overdue actions
     if (filters?.overdue === 'true') {
       const now = new Date();
@@ -1412,24 +1570,49 @@ export async function getDashboardStats() {
         locationsCount: 0,
       };
     }
-    
+
     const supabase = createServiceClient();
+    
+    // Get accessible location IDs based on user permissions
+    const accessibleLocationIds = await getAccessibleLocationIds();
+
+    // Build queries with location filtering
+    let auditsQuery = supabase
+      .from('audits')
+      .select('passed, location_id')
+      .eq('organization_id', orgId)
+      .eq('status', 'completed');
+    
+    let actionsQuery = supabase
+      .from('actions')
+      .select('id, location_id')
+      .eq('organization_id', orgId)
+      .in('status', ['pending', 'in_progress']);
+    
+    let locationsQuery = supabase
+      .from('locations')
+      .select('id')
+      .eq('organization_id', orgId);
+
+    // Apply role-based location filter if user is not admin/inspector
+    if (accessibleLocationIds !== null) {
+      if (accessibleLocationIds.length === 0) {
+        return {
+          totalAudits: 0,
+          passRate: 0,
+          openActions: 0,
+          locationsCount: 0,
+        };
+      }
+      auditsQuery = auditsQuery.in('location_id', accessibleLocationIds);
+      actionsQuery = actionsQuery.in('location_id', accessibleLocationIds);
+      locationsQuery = locationsQuery.in('id', accessibleLocationIds);
+    }
 
     const [auditsResult, actionsResult, locationsResult] = await Promise.all([
-      supabase
-        .from('audits')
-        .select('passed')
-        .eq('organization_id', orgId)
-        .eq('status', 'completed'),
-      supabase
-        .from('actions')
-        .select('id')
-        .eq('organization_id', orgId)
-        .in('status', ['pending', 'in_progress']),
-      supabase
-        .from('locations')
-        .select('id')
-        .eq('organization_id', orgId),
+      auditsQuery,
+      actionsQuery,
+      locationsQuery,
     ]);
 
     const audits = auditsResult.data || [];
