@@ -33,9 +33,14 @@ export type Location = {
   phone: string | null;
   email: string | null;
   manager_id: string | null;
+  group_id: string | null;
   status: string;
   created_at: string;
   updated_at: string;
+  // QR Code fields
+  qr_code_token: string | null;
+  qr_code_enabled: boolean;
+  qr_code_created_at: string | null;
   // Joined data
   manager?: LocationManager | null;
 };
@@ -100,7 +105,7 @@ export type Action = {
 // Helper: Get Organization ID from Clerk
 // ============================================
 
-async function getOrganizationId(): Promise<string | null> {
+export async function getOrganizationId(): Promise<string | null> {
   try {
     // Check if Supabase is configured
     if (!isSupabaseConfigured()) {
@@ -591,6 +596,10 @@ export async function updateLocation(id: string, formData: FormData): Promise<{ 
     const managerIdValue = formData.get('managerId') as string;
     const managerId = managerIdValue && managerIdValue.trim() !== '' ? managerIdValue : null;
 
+    // Get group_id and handle empty string as null
+    const groupIdValue = formData.get('groupId') as string;
+    const groupId = groupIdValue && groupIdValue.trim() !== '' ? groupIdValue : null;
+
     const updates = {
       name: formData.get('name') as string,
       address: formData.get('address') as string || null,
@@ -600,9 +609,9 @@ export async function updateLocation(id: string, formData: FormData): Promise<{ 
       phone: formData.get('phone') as string || null,
       email: formData.get('email') as string || null,
       manager_id: managerId,
+      group_id: groupId,
+      status: formData.get('status') as string || 'active',
     };
-
-    console.log('Updating location with manager_id:', managerId);
 
     const { error } = await supabase
       .from('locations')
@@ -616,6 +625,7 @@ export async function updateLocation(id: string, formData: FormData): Promise<{ 
 
     revalidatePath('/dashboard/locations');
     revalidatePath(`/dashboard/locations/${id}`);
+    revalidatePath('/dashboard/settings/regions');
     return { success: true };
   } catch (error) {
     console.error('Error updating location:', error);
@@ -1125,6 +1135,64 @@ export async function createAudit(formData: FormData): Promise<{ success: boolea
   } catch (error) {
     console.error('Error creating audit:', error);
     return { success: false, error: 'Failed to create audit' };
+  }
+}
+
+// Clone an existing audit (start a new audit at the same location with same template)
+export async function cloneAudit(auditId: string): Promise<{ success: boolean; error?: string; id?: string }> {
+  try {
+    const orgId = await getOrganizationId();
+    if (!orgId) {
+      return { success: false, error: 'No organization selected' };
+    }
+    
+    const supabase = createServiceClient();
+
+    // Get the original audit
+    const { data: originalAudit, error: fetchError } = await supabase
+      .from('audits')
+      .select('*')
+      .eq('id', auditId)
+      .eq('organization_id', orgId)
+      .single();
+
+    if (fetchError || !originalAudit) {
+      return { success: false, error: 'Original audit not found' };
+    }
+
+    // Ensure user exists in Supabase
+    const inspectorId = await ensureUserExists();
+    if (!inspectorId) {
+      return { success: false, error: 'Failed to identify inspector' };
+    }
+
+    // Create new audit with same location and template
+    const auditData = {
+      organization_id: orgId,
+      location_id: originalAudit.location_id,
+      template_id: originalAudit.template_id,
+      inspector_id: inspectorId,
+      audit_date: new Date().toISOString().split('T')[0],
+      status: 'in_progress' as const,
+      started_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from('audits')
+      .insert([auditData])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error cloning audit:', error);
+      throw error;
+    }
+
+    revalidatePath('/dashboard/audits');
+    return { success: true, id: data.id };
+  } catch (error) {
+    console.error('Error cloning audit:', error);
+    return { success: false, error: 'Failed to clone audit' };
   }
 }
 
@@ -2135,6 +2203,87 @@ export async function deletePhoto(
   } catch (error) {
     console.error('Error deleting photo:', error);
     return { success: false, error: 'Failed to delete photo' };
+  }
+}
+
+// ============================================
+// PHOTO STATISTICS
+// ============================================
+
+export async function getPhotoStats(locationId?: string): Promise<{ 
+  totalPhotos: number;
+  auditsWithPhotos: number;
+  photosByLocation: { locationId: string; locationName: string; photoCount: number }[];
+}> {
+  try {
+    const orgId = await getOrganizationId();
+    if (!orgId) {
+      return { totalPhotos: 0, auditsWithPhotos: 0, photosByLocation: [] };
+    }
+
+    const supabase = createServiceClient();
+    
+    // Get all audit results with photos
+    let query = supabase
+      .from('audit_results')
+      .select(`
+        photo_urls,
+        audit:audits!inner(
+          id,
+          organization_id,
+          location_id,
+          location:locations(name)
+        )
+      `)
+      .eq('audit.organization_id', orgId);
+
+    if (locationId) {
+      query = query.eq('audit.location_id', locationId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching photo stats:', error);
+      return { totalPhotos: 0, auditsWithPhotos: 0, photosByLocation: [] };
+    }
+
+    // Count photos
+    let totalPhotos = 0;
+    const auditIds = new Set<string>();
+    const locationPhotoCounts: Record<string, { name: string; count: number }> = {};
+
+    (data || []).forEach((result: any) => {
+      const photos = result.photo_urls || [];
+      if (photos.length > 0) {
+        totalPhotos += photos.length;
+        auditIds.add(result.audit?.id);
+        
+        const locId = result.audit?.location_id;
+        const locName = result.audit?.location?.name || 'Unknown';
+        if (locId) {
+          if (!locationPhotoCounts[locId]) {
+            locationPhotoCounts[locId] = { name: locName, count: 0 };
+          }
+          locationPhotoCounts[locId].count += photos.length;
+        }
+      }
+    });
+
+    const photosByLocation = Object.entries(locationPhotoCounts).map(([id, data]) => ({
+      locationId: id,
+      locationName: data.name,
+      photoCount: data.count,
+    })).sort((a, b) => b.photoCount - a.photoCount);
+
+    return {
+      totalPhotos,
+      auditsWithPhotos: auditIds.size,
+      photosByLocation,
+    };
+  } catch (error) {
+    console.error('Error in getPhotoStats:', error);
+    return { totalPhotos: 0, auditsWithPhotos: 0, photosByLocation: [] };
   }
 }
 

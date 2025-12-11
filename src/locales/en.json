@@ -261,9 +261,31 @@
     "actions": "Actions",
     "reports": "Reports",
     "analytics": "Analytics",
+    "calendar": "Calendar",
+    "photos": "Photos",
     "locations": "Locations",
     "members": "Team",
     "settings": "Settings"
+  },
+  "Calendar": {
+    "title": "Audit Calendar",
+    "description": "View and plan your audits"
+  },
+  "Photos": {
+    "title": "Photo Evidence",
+    "description": "Browse all audit photos"
+  },
+  "Benchmarking": {
+    "title": "Benchmarking",
+    "description": "Compare performance across locations"
+  },
+  "Alerts": {
+    "title": "Alerts & Warnings",
+    "description": "Monitor performance alerts"
+  },
+  "Regions": {
+    "title": "Regions & Groups",
+    "description": "Organize locations by region"
   },
   "Dashboard": {
     "meta_title": "Dashboard - AuditFlow",

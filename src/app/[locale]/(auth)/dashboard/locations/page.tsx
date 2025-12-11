@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 
-import { getLocations, type LocationFilters } from '@/actions/supabase';
+import { getLocations, getUserPermissions, type LocationFilters } from '@/actions/supabase';
 import { FilterBar } from '@/components/filters';
 import { buttonVariants } from '@/components/ui/buttonVariants';
 import { TitleBar } from '@/features/dashboard/TitleBar';
@@ -14,7 +14,11 @@ type Props = {
 export default async function LocationsPage({ searchParams }: Props) {
   const t = await getTranslations('Locations');
   
-  // Get all locations first to extract unique cities
+  // Get user permissions
+  const permissions = await getUserPermissions();
+  const isAdmin = permissions.isAdmin;
+  
+  // Get all locations first to extract unique cities (already filtered by role)
   const allLocations = await getLocations();
   const cities = [...new Set(allLocations.filter(l => l.city).map(l => l.city as string))].sort();
   
@@ -77,25 +81,28 @@ export default async function LocationsPage({ searchParams }: Props) {
         <div className="text-sm text-muted-foreground">
           {locations.length} {locations.length === 1 ? 'location' : 'locations'}
           {hasFilters && ' (filtered)'}
+          {!isAdmin && locations.length > 0 && ' (assigned to you)'}
         </div>
-        <Link
-          href="/dashboard/locations/new"
-          className={buttonVariants({ size: 'sm' })}
-        >
-          <svg
-            className="mr-2 size-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        {isAdmin && (
+          <Link
+            href="/dashboard/locations/new"
+            className={buttonVariants({ size: 'sm' })}
           >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          {t('add_location')}
-        </Link>
+            <svg
+              className="mr-2 size-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            {t('add_location')}
+          </Link>
+        )}
       </div>
 
       {/* Locations Grid */}
@@ -229,14 +236,26 @@ export default async function LocationsPage({ searchParams }: Props) {
             </svg>
           </div>
           <h3 className="mb-2 text-lg font-semibold">
-            {hasFilters ? 'No matching locations' : t('no_locations')}
+            {hasFilters 
+              ? 'No matching locations' 
+              : isAdmin 
+                ? t('no_locations') 
+                : 'No locations assigned'
+            }
           </h3>
           <p className="mb-6 text-muted-foreground">
-            {hasFilters ? 'Try adjusting your filters' : t('add_first_location')}
+            {hasFilters 
+              ? 'Try adjusting your filters' 
+              : isAdmin 
+                ? t('add_first_location')
+                : 'Contact your administrator to be assigned to a location.'
+            }
           </p>
-          <Link href="/dashboard/locations/new" className={buttonVariants()}>
-            {t('add_location')}
-          </Link>
+          {isAdmin && (
+            <Link href="/dashboard/locations/new" className={buttonVariants()}>
+              {t('add_location')}
+            </Link>
+          )}
         </div>
       )}
     </>

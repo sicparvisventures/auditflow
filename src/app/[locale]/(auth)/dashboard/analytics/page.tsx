@@ -8,6 +8,7 @@ import {
   getMostFailedItems,
   getScoreTrend,
 } from '@/actions/analytics';
+import { AdminOnly } from '@/components/AdminOnly';
 import { TitleBar } from '@/features/dashboard/TitleBar';
 
 export default async function AnalyticsPage() {
@@ -29,7 +30,7 @@ export default async function AnalyticsPage() {
   ]);
 
   return (
-    <>
+    <AdminOnly>
       <TitleBar
         title="Analytics"
         description="Detailed insights and trends across your organization"
@@ -322,6 +323,6 @@ export default async function AnalyticsPage() {
           </div>
         )}
       </div>
-    </>
+    </AdminOnly>
   );
 }

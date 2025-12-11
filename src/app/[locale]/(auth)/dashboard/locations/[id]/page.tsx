@@ -2,10 +2,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 
-import { getLocation, getLocationStats } from '@/actions/supabase';
+import { getLocation, getLocationStats, getUserPermissions } from '@/actions/supabase';
 import { buttonVariants } from '@/components/ui/buttonVariants';
 import { TitleBar } from '@/features/dashboard/TitleBar';
 import { LocationDetailHints } from '@/features/hints';
+import { LocationQRCode } from '@/features/qrcode/LocationQRCode';
 
 import { DeleteLocationButton } from './DeleteButton';
 
@@ -15,10 +16,13 @@ type Props = {
 
 export default async function LocationDetailPage({ params }: Props) {
   const t = await getTranslations('Locations');
-  const [location, stats] = await Promise.all([
+  const [location, stats, permissions] = await Promise.all([
     getLocation(params.id),
     getLocationStats(params.id),
+    getUserPermissions(),
   ]);
+  
+  const isAdmin = permissions.isAdmin;
   
   // Manager is now included in location data
   const manager = location?.manager;
@@ -232,16 +236,18 @@ export default async function LocationDetailPage({ params }: Props) {
         <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-semibold">{t('manager')}</h3>
-            <Link
-              href={`/dashboard/locations/${location.id}/edit`}
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              <svg className="mr-2 size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-              </svg>
-              {t('edit_location')}
-            </Link>
+            {isAdmin && (
+              <Link
+                href={`/dashboard/locations/${location.id}/edit`}
+                className={buttonVariants({ variant: 'outline', size: 'sm' })}
+              >
+                <svg className="mr-2 size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+                {t('edit_location')}
+              </Link>
+            )}
           </div>
           
           {manager ? (
@@ -266,11 +272,13 @@ export default async function LocationDetailPage({ params }: Props) {
               </div>
               <div>
                 <p className="font-medium text-muted-foreground">Geen manager toegewezen</p>
-                <p className="text-sm text-muted-foreground">
-                  <Link href={`/dashboard/locations/${location.id}/edit`} className="text-primary hover:underline">
-                    Wijs een manager toe
-                  </Link>
-                </p>
+                {isAdmin && (
+                  <p className="text-sm text-muted-foreground">
+                    <Link href={`/dashboard/locations/${location.id}/edit`} className="text-primary hover:underline">
+                      Wijs een manager toe
+                    </Link>
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -306,14 +314,48 @@ export default async function LocationDetailPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Danger Zone */}
-        <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-6">
-          <h3 className="mb-2 font-semibold text-destructive">Danger Zone</h3>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Deleting this location will also delete all associated audits and actions.
-          </p>
-          <DeleteLocationButton locationId={location.id} locationName={location.name} />
-        </div>
+        {/* QR Code Section */}
+        {location.qr_code_token && (
+          <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg className="size-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="7" height="7" />
+                  <rect x="14" y="3" width="7" height="7" />
+                  <rect x="14" y="14" width="7" height="7" />
+                  <rect x="3" y="14" width="7" height="7" />
+                </svg>
+                <h3 className="font-semibold">Quick Access QR Code</h3>
+              </div>
+              <span className={`rounded-full px-2 py-1 text-xs font-medium ${
+                location.qr_code_enabled 
+                  ? 'bg-green-100 text-green-700' 
+                  : 'bg-gray-100 text-gray-600'
+              }`}>
+                {location.qr_code_enabled ? 'Active' : 'Disabled'}
+              </span>
+            </div>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Print or share this QR code. Team members can scan it to instantly start an audit at this location.
+            </p>
+            <LocationQRCode
+              locationName={location.name}
+              qrToken={location.qr_code_token}
+              size={180}
+            />
+          </div>
+        )}
+
+        {/* Danger Zone - Admin Only */}
+        {isAdmin && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-6">
+            <h3 className="mb-2 font-semibold text-destructive">Danger Zone</h3>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Deleting this location will also delete all associated audits and actions.
+            </p>
+            <DeleteLocationButton locationId={location.id} locationName={location.name} />
+          </div>
+        )}
 
         {/* Back Link */}
         <Link

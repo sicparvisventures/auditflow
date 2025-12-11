@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 
+import { getLocationGroups, type LocationGroup } from '@/actions/location-groups';
 import {
   getLocation,
   getLocationManagerCandidates,
@@ -29,6 +30,7 @@ export default function EditLocationPage() {
   const [error, setError] = useState<string | null>(null);
   const [location, setLocation] = useState<Location | null>(null);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
+  const [groups, setGroups] = useState<LocationGroup[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
 
   // Load location data
@@ -53,22 +55,26 @@ export default function EditLocationPage() {
     loadLocation();
   }, [locationId]);
 
-  // Load organization members for manager selection
+  // Load organization members and groups
   useEffect(() => {
-    async function loadMembers() {
+    async function loadData() {
       setLoadingMembers(true);
       try {
-        const memberList = await getLocationManagerCandidates();
+        const [memberList, groupsList] = await Promise.all([
+          getLocationManagerCandidates(),
+          getLocationGroups(),
+        ]);
         setMembers(memberList);
+        setGroups(groupsList);
       } catch (err) {
-        console.error('Failed to load members:', err);
+        console.error('Failed to load data:', err);
       } finally {
         setLoadingMembers(false);
       }
     }
 
     if (organization) {
-      loadMembers();
+      loadData();
     }
   }, [organization]);
 
@@ -254,6 +260,55 @@ export default function EditLocationPage() {
           </div>
         </div>
 
+        {/* Region & Status Card */}
+        <div className="mb-6 rounded-lg border border-border bg-card p-6 shadow-sm">
+          <h3 className="mb-4 font-semibold">Organization</h3>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="groupId" className="mb-1 block text-sm font-medium">
+                Region / Group
+              </label>
+              <select
+                id="groupId"
+                name="groupId"
+                defaultValue={location.group_id || ''}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">-- No Region --</option>
+                {groups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
+              {groups.length === 0 && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  No regions created yet.{' '}
+                  <Link href="/dashboard/settings/regions" className="text-primary underline">
+                    Create regions
+                  </Link>
+                </p>
+              )}
+            </div>
+            <div>
+              <label htmlFor="status" className="mb-1 block text-sm font-medium">
+                Status
+              </label>
+              <select
+                id="status"
+                name="status"
+                defaultValue={location.status || 'active'}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         {/* Manager Assignment Card */}
         <div className="mb-6 rounded-lg border border-border bg-card p-6 shadow-sm">
           <h3 className="mb-2 font-semibold">{t('assign_manager')}</h3>
@@ -292,13 +347,6 @@ export default function EditLocationPage() {
                 >
                   {t('invite_new_manager')}
                 </Link>
-              </p>
-            )}
-            {/* Debug info - remove in production */}
-            {process.env.NODE_ENV === 'development' && members.length > 0 && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Debug: {members.length} leden gevonden, {members.filter(m => m.supabaseUserId).length} met Supabase ID.
-                Huidige manager_id: {location.manager_id || 'geen'}
               </p>
             )}
           </div>

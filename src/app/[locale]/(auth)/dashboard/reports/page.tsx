@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 
 import { getActions, getAudits, getDashboardStats, getLocations, type AuditFilters, type ActionFilters } from '@/actions/supabase';
+import { AdminOnly } from '@/components/AdminOnly';
 import { FilterBar } from '@/components/filters';
 import { TitleBar } from '@/features/dashboard/TitleBar';
 import { ReportsPageHints } from '@/features/hints';
@@ -91,7 +92,7 @@ export default async function ReportsPage({ searchParams }: Props) {
   const selectedLocation = allLocations.find(l => l.id === searchParams.location);
 
   return (
-    <>
+    <AdminOnly>
       <TitleBar
         title={selectedLocation ? `Report: ${selectedLocation.name}` : t('title_bar')}
         description={t('title_bar_description')}
@@ -303,7 +304,7 @@ export default async function ReportsPage({ searchParams }: Props) {
           </div>
         )}
       </div>
-    </>
+    </AdminOnly>
   );
 }
 

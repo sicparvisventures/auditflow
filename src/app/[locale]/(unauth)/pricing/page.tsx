@@ -23,3 +23,4 @@ const Pricing = (props: { params: { locale: string } }) => {
 export default Pricing;
 
 
+

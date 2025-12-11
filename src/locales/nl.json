@@ -261,9 +261,31 @@
     "actions": "Acties",
     "reports": "Rapporten",
     "analytics": "Analytics",
+    "calendar": "Kalender",
+    "photos": "Foto's",
     "locations": "Locaties",
     "members": "Team",
     "settings": "Instellingen"
+  },
+  "Calendar": {
+    "title": "Audit Kalender",
+    "description": "Bekijk en plan je audits"
+  },
+  "Photos": {
+    "title": "Foto Bewijs",
+    "description": "Bekijk alle audit foto's"
+  },
+  "Benchmarking": {
+    "title": "Vergelijking",
+    "description": "Vergelijk prestaties tussen locaties"
+  },
+  "Alerts": {
+    "title": "Waarschuwingen",
+    "description": "Monitor prestatie alerts"
+  },
+  "Regions": {
+    "title": "Regio's & Groepen",
+    "description": "Organiseer locaties per regio"
   },
   "Dashboard": {
     "meta_title": "Dashboard - AuditFlow",

@@ -16,6 +16,8 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { HintToggle } from '@/features/hints';
 import { NotificationCenter } from '@/features/notifications';
+import { GlobalSearch } from '@/features/search';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Logo } from '@/templates/Logo';
 import { getI18nPath } from '@/utils/Helpers';
 
@@ -23,9 +25,16 @@ export const DashboardHeader = (props: {
   menu: {
     href: string;
     label: string;
+    adminOnly?: boolean;
   }[];
 }) => {
   const locale = useLocale();
+  const { isAdmin, isLoading } = useUserRole();
+
+  // Filter menu items based on role
+  const filteredMenu = isLoading
+    ? props.menu.filter(item => !item.adminOnly)
+    : props.menu.filter(item => !item.adminOnly || isAdmin);
 
   return (
     <>
@@ -67,7 +76,7 @@ export const DashboardHeader = (props: {
 
         <nav className="ml-3 max-lg:hidden">
           <ul className="flex flex-row items-center gap-x-3 text-lg font-medium [&_a:hover]:opacity-100 [&_a]:opacity-75">
-            {props.menu.map(item => (
+            {filteredMenu.map(item => (
               <li key={item.href}>
                 <ActiveLink href={item.href}>{item.label}</ActiveLink>
               </li>
@@ -80,18 +89,23 @@ export const DashboardHeader = (props: {
         <ul className="flex items-center gap-x-1 sm:gap-x-1.5 [&_li[data-fade]:hover]:opacity-100 [&_li[data-fade]]:opacity-60">
           {/* Mobile: Only show hamburger menu for navigation */}
           <li data-fade className="lg:hidden">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <ToggleMenuButton />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                {props.menu.map(item => (
-                  <DropdownMenuItem key={item.href} asChild>
-                    <Link href={item.href}>{item.label}</Link>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <ToggleMenuButton />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  {filteredMenu.map(item => (
+                    <DropdownMenuItem key={item.href} asChild>
+                      <Link href={item.href}>{item.label}</Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+          </li>
+
+          {/* Global Search - hidden on smallest mobile */}
+          <li className="hidden xs:block sm:block">
+            <GlobalSearch />
           </li>
 
           {/* Hints toggle - hidden on mobile, accessible via More page */}

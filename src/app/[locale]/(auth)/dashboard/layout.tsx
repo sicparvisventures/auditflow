@@ -30,6 +30,7 @@ export default function DashboardLayout(props: { children: React.ReactNode }) {
               {
                 href: '/dashboard',
                 label: t('home'),
+                adminOnly: true,
               },
               {
                 href: '/dashboard/audits',
@@ -40,16 +41,27 @@ export default function DashboardLayout(props: { children: React.ReactNode }) {
                 label: t('actions'),
               },
               {
+                href: '/dashboard/calendar',
+                label: 'Calendar',
+              },
+              {
+                href: '/dashboard/locations',
+                label: t('locations'),
+              },
+              {
                 href: '/dashboard/reports',
                 label: t('reports'),
+                adminOnly: true,
               },
               {
                 href: '/dashboard/analytics',
                 label: t('analytics'),
+                adminOnly: true,
               },
               {
                 href: '/dashboard/organization-profile',
                 label: t('settings'),
+                adminOnly: true,
               },
             ]}
           />

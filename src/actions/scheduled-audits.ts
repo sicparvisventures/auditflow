@@ -4,6 +4,7 @@ import { auth } from '@clerk/nextjs/server';
 import { revalidatePath } from 'next/cache';
 
 import { createServiceClient, isSupabaseConfigured } from '@/libs/supabase/server';
+import { getUserPermissions } from './supabase';
 
 // ============================================
 // Types
@@ -207,6 +208,12 @@ export async function getPendingScheduledInstances(): Promise<{
     const orgId = await getOrganizationId();
     if (!orgId) return [];
 
+    // Get user permissions to filter by accessible locations
+    const permissions = await getUserPermissions();
+    const accessibleLocationIds = permissions.canViewAllLocations 
+      ? null 
+      : permissions.assignedLocationIds;
+
     const supabase = createServiceClient();
     
     const { data, error } = await supabase
@@ -228,12 +235,24 @@ export async function getPendingScheduledInstances(): Promise<{
       return [];
     }
 
-    return (data || [])
-      .filter(d => d.scheduled_audit?.organization_id === orgId)
-      .map(d => ({
-        instance: d,
-        scheduledAudit: d.scheduled_audit,
-      }));
+    // Filter by organization and accessible locations
+    let results = (data || [])
+      .filter(d => d.scheduled_audit?.organization_id === orgId);
+    
+    // For members, filter by their accessible locations
+    if (accessibleLocationIds !== null) {
+      if (accessibleLocationIds.length === 0) {
+        return [];
+      }
+      results = results.filter(d => 
+        accessibleLocationIds.includes(d.scheduled_audit?.location_id)
+      );
+    }
+
+    return results.map(d => ({
+      instance: d,
+      scheduledAudit: d.scheduled_audit,
+    }));
   } catch (error) {
     console.error('Error in getPendingScheduledInstances:', error);
     return [];

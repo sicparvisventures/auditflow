@@ -1,0 +1,1 @@
+export { LocationQRCode } from './LocationQRCode';

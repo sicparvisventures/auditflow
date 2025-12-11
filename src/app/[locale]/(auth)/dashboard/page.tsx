@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 
 import { getActions, getAudits, getDashboardStats, getMyActions } from '@/actions/supabase';
 import { getPendingScheduledInstances } from '@/actions/scheduled-audits';
+import { AdminOnly } from '@/components/AdminOnly';
 import { buttonVariants } from '@/components/ui/buttonVariants';
 import { TitleBar } from '@/features/dashboard/TitleBar';
 import { DashboardHomeHints } from '@/features/hints';
@@ -24,7 +25,7 @@ export default async function DashboardIndexPage() {
   const hasDueSoon = (stats.actionsDueSoon ?? 0) > 0;
 
   return (
-    <>
+    <AdminOnly>
       <TitleBar
         title={t('title_bar')}
         description={t('title_bar_description')}
@@ -275,24 +276,24 @@ export default async function DashboardIndexPage() {
                 {pendingActions.slice(0, 5).map(action => {
                   const isOverdue = action.deadline && new Date(action.deadline) < new Date();
                   return (
-                    <Link
-                      key={action.id}
-                      href={`/dashboard/actions/${action.id}`}
+                  <Link
+                    key={action.id}
+                    href={`/dashboard/actions/${action.id}`}
                       className="flex items-center justify-between rounded-lg p-2.5 transition-colors hover:bg-muted sm:p-3"
-                    >
+                  >
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium">{action.title}</p>
                         <p className={`text-xs sm:text-sm ${isOverdue ? 'font-medium text-red-600' : 'text-muted-foreground'}`}>
                           {action.location?.name}
                           {action.deadline && ` • ${isOverdue ? 'Overdue' : new Date(action.deadline).toLocaleDateString('nl-NL')}`}
                         </p>
-                      </div>
+                    </div>
                       <span className={`size-2.5 shrink-0 rounded-full ${
-                        action.urgency === 'critical' ? 'bg-red-500' :
-                        action.urgency === 'high' ? 'bg-orange-500' :
-                        action.urgency === 'medium' ? 'bg-yellow-500' : 'bg-gray-400'
-                      }`} />
-                    </Link>
+                      action.urgency === 'critical' ? 'bg-red-500' :
+                      action.urgency === 'high' ? 'bg-orange-500' :
+                      action.urgency === 'medium' ? 'bg-yellow-500' : 'bg-gray-400'
+                    }`} />
+                  </Link>
                   );
                 })}
               </div>
@@ -340,7 +341,7 @@ export default async function DashboardIndexPage() {
           </Link>
         </div>
       )}
-    </>
+    </AdminOnly>
   );
 }
 
