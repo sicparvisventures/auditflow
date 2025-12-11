@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/sicparvisventures/auditflow/compare/v1.5.1...v1.6.0) (2025-12-11)
+
+
+### Features
+
+* analytics, activity log, notifications, scheduled audits ([b4270e7](https://github.com/sicparvisventures/auditflow/commit/b4270e7e3529ea5400292995617dd6b9eacb679b))
+
 ## [1.5.1](https://github.com/sicparvisventures/auditflow/compare/v1.5.0...v1.5.1) (2025-12-10)
 
 
