@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/sicparvisventures/auditflow/compare/v1.6.0...v1.7.0) (2025-12-11)
+
+
+### Features
+
+* QR codes, calendar, photos, benchmarking, alerts, regions ([522a393](https://github.com/sicparvisventures/auditflow/commit/522a3936a6a876d11e174b7b566a9cef020ca97a))
+
 # [1.6.0](https://github.com/sicparvisventures/auditflow/compare/v1.5.1...v1.6.0) (2025-12-11)
 
 
