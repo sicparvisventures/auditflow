@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 
-import { getLocation } from '@/actions/supabase';
+import { getLocation, getLocationStats } from '@/actions/supabase';
 import { buttonVariants } from '@/components/ui/buttonVariants';
 import { TitleBar } from '@/features/dashboard/TitleBar';
 import { LocationDetailHints } from '@/features/hints';
@@ -15,7 +15,10 @@ type Props = {
 
 export default async function LocationDetailPage({ params }: Props) {
   const t = await getTranslations('Locations');
-  const location = await getLocation(params.id);
+  const [location, stats] = await Promise.all([
+    getLocation(params.id),
+    getLocationStats(params.id),
+  ]);
   
   // Manager is now included in location data
   const manager = location?.manager;
@@ -45,6 +48,133 @@ export default async function LocationDetailPage({ params }: Props) {
             {location.status === 'active' ? t('active') : t('inactive')}
           </span>
         </div>
+
+        {/* Performance Summary Card */}
+        {stats && stats.totalAudits > 0 && (
+          <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-semibold">Performance Overview</h3>
+              {stats.scoreTrend !== 0 && (
+                <div className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
+                  stats.scoreTrend > 0 
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30' 
+                    : 'bg-red-100 text-red-700 dark:bg-red-900/30'
+                }`}>
+                  {stats.scoreTrend > 0 ? (
+                    <svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="18 15 12 9 6 15" />
+                    </svg>
+                  ) : (
+                    <svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  )}
+                  {Math.abs(stats.scoreTrend)}% trend
+                </div>
+              )}
+            </div>
+            
+            {/* Score Display */}
+            <div className="mb-4 flex items-center gap-4">
+              <div className={`flex size-16 items-center justify-center rounded-full text-xl font-bold sm:size-20 sm:text-2xl ${
+                stats.avgScore >= 70 
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30' 
+                  : stats.avgScore >= 50 
+                    ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30'
+                    : 'bg-red-100 text-red-700 dark:bg-red-900/30'
+              }`}>
+                {stats.avgScore}%
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.avgScore}%</p>
+                <p className="text-sm text-muted-foreground">Average Score</p>
+              </div>
+            </div>
+
+            {/* Mini Stats Grid */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-lg bg-muted/50 p-3 text-center">
+                <div className="text-lg font-semibold">{stats.totalAudits}</div>
+                <div className="text-xs text-muted-foreground">Total Audits</div>
+              </div>
+              <div className="rounded-lg bg-muted/50 p-3 text-center">
+                <div className="text-lg font-semibold text-green-600">{stats.passRate}%</div>
+                <div className="text-xs text-muted-foreground">Pass Rate</div>
+              </div>
+              <div className="rounded-lg bg-muted/50 p-3 text-center">
+                <div className={`text-lg font-semibold ${stats.overdueActions > 0 ? 'text-red-600' : ''}`}>
+                  {stats.openActions}
+                </div>
+                <div className="text-xs text-muted-foreground">Open Actions</div>
+              </div>
+              <div className="rounded-lg bg-muted/50 p-3 text-center">
+                <div className="text-lg font-semibold">
+                  {stats.lastAuditDate 
+                    ? new Date(stats.lastAuditDate).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })
+                    : '-'}
+                </div>
+                <div className="text-xs text-muted-foreground">Last Audit</div>
+              </div>
+            </div>
+
+            {/* Score History Mini Chart */}
+            {stats.monthlyScores.length >= 2 && (
+              <div className="mt-4 border-t border-border pt-4">
+                <p className="mb-2 text-xs text-muted-foreground">Recent Scores</p>
+                <div className="flex items-end gap-1.5 sm:gap-2">
+                  {stats.monthlyScores.map((entry, idx) => (
+                    <div key={idx} className="flex flex-1 flex-col items-center gap-1">
+                      <div 
+                        className={`w-full rounded-t ${
+                          entry.score >= 70 ? 'bg-green-500' : entry.score >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                        }`}
+                        style={{ height: `${Math.max(entry.score * 0.6, 8)}px` }}
+                      />
+                      <span className="text-xs text-muted-foreground">{entry.score}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Overdue Alert */}
+            {stats.overdueActions > 0 && (
+              <Link 
+                href={`/dashboard/actions?location=${location.id}&overdue=true`}
+                className="mt-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm transition-colors hover:bg-red-100 dark:border-red-900 dark:bg-red-950/50"
+              >
+                <svg className="size-4 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <span className="font-medium text-red-800 dark:text-red-200">
+                  {stats.overdueActions} overdue {stats.overdueActions === 1 ? 'action' : 'actions'}
+                </span>
+              </Link>
+            )}
+          </div>
+        )}
+
+        {/* No Audits Yet */}
+        {(!stats || stats.totalAudits === 0) && (
+          <div className="rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center">
+            <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-muted">
+              <svg className="size-6 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+                <rect x="9" y="3" width="6" height="4" rx="2" />
+              </svg>
+            </div>
+            <p className="mb-1 font-medium">No audits yet</p>
+            <p className="mb-4 text-sm text-muted-foreground">Start your first audit for this location</p>
+            <Link 
+              href={`/dashboard/audits/new?locationId=${location.id}`}
+              className={buttonVariants({ size: 'sm' })}
+            >
+              Start First Audit
+            </Link>
+          </div>
+        )}
 
         {/* Details Card */}
         <div className="rounded-lg border border-border bg-card p-6 shadow-sm">

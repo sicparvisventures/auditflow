@@ -260,6 +260,7 @@
     "audits": "Audits",
     "actions": "Actions",
     "reports": "Reports",
+    "analytics": "Analytics",
     "locations": "Locations",
     "members": "Team",
     "settings": "Settings"
@@ -536,5 +537,22 @@
     "search": "Search...",
     "no_results": "No results found",
     "confirm_delete": "Are you sure you want to delete this?"
+  },
+  "Analytics": {
+    "title": "Analytics",
+    "description": "Detailed insights and trends"
+  },
+  "ActivityLog": {
+    "title": "Activity Log",
+    "description": "Track all changes and audit trail"
+  },
+  "ScheduledAudits": {
+    "title": "Scheduled Audits",
+    "description": "Plan and automate recurring audits"
+  },
+  "Notifications": {
+    "title": "Notifications",
+    "mark_all_read": "Mark all as read",
+    "no_notifications": "No notifications yet"
   }
 }

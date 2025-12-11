@@ -3,6 +3,7 @@ export const CenteredHero = (props: {
   title: React.ReactNode;
   description: string;
   buttons: React.ReactNode;
+  logo?: React.ReactNode;
 }) => (
   <div className="relative">
     {/* Decorative background elements for visual interest */}
@@ -18,6 +19,15 @@ export const CenteredHero = (props: {
         }}
       />
     </div>
+
+    {/* Logo with nice styling */}
+    {props.logo && (
+      <div className="mb-6 flex animate-fade-in justify-center md:mb-8">
+        <div className="rounded-2xl border border-border/50 bg-gradient-to-b from-background to-muted/30 p-4 shadow-xl shadow-primary/10 ring-1 ring-white/10 backdrop-blur-sm">
+          {props.logo}
+        </div>
+      </div>
+    )}
 
     {/* Badge/Banner with animation */}
     <div className="animate-fade-in text-center">

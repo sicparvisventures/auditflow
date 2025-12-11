@@ -43,20 +43,8 @@ export const AboutPage = () => {
         {/* Hero Section */}
         <section className="border-b border-border/40 bg-gradient-to-b from-primary/5 to-background px-6 py-10">
           <div className="mx-auto max-w-md text-center">
-            <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-primary/10">
-              <svg
-                className="size-7 text-primary"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
-                <rect x="9" y="3" width="6" height="4" rx="2" />
-                <path d="m9 14 2 2 4-4" />
-              </svg>
+            <div className="mx-auto mb-4 flex items-center justify-center">
+              <Logo size="lg" isTextHidden />
             </div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
               {t('hero_title')}
@@ -337,3 +325,5 @@ const PricingCard = (props: {
     </Link>
   </div>
 );
+
+

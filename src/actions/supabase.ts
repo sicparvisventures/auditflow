@@ -463,6 +463,88 @@ export async function getLocation(id: string): Promise<Location | null> {
   return data;
 }
 
+// ============================================
+// GET LOCATION PERFORMANCE STATS
+// ============================================
+
+export async function getLocationStats(locationId: string) {
+  try {
+    const supabase = createServiceClient();
+    
+    // Get audits for this location
+    const { data: audits } = await supabase
+      .from('audits')
+      .select('id, audit_date, pass_percentage, passed, status')
+      .eq('location_id', locationId)
+      .eq('status', 'completed')
+      .order('audit_date', { ascending: false })
+      .limit(12);
+    
+    // Get actions for this location
+    const { data: actions } = await supabase
+      .from('actions')
+      .select('id, status, deadline')
+      .eq('location_id', locationId);
+    
+    if (!audits || !actions) {
+      return null;
+    }
+    
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0]!;
+    
+    // Calculate stats
+    const totalAudits = audits.length;
+    const passedAudits = audits.filter(a => a.passed).length;
+    const passRate = totalAudits > 0 ? Math.round((passedAudits / totalAudits) * 100) : 0;
+    const avgScore = totalAudits > 0 
+      ? Math.round(audits.reduce((sum, a) => sum + (a.pass_percentage || 0), 0) / totalAudits)
+      : 0;
+    
+    const lastAudit = audits[0] || null;
+    const openActions = actions.filter(a => ['pending', 'in_progress'].includes(a.status)).length;
+    const overdueActions = actions.filter(a => 
+      ['pending', 'in_progress'].includes(a.status) && 
+      a.deadline && a.deadline < todayStr
+    ).length;
+    
+    // Score trend (compare last 3 vs previous 3)
+    const recentScores = audits.slice(0, 3).map(a => a.pass_percentage || 0);
+    const olderScores = audits.slice(3, 6).map(a => a.pass_percentage || 0);
+    
+    const recentAvg = recentScores.length > 0 
+      ? recentScores.reduce((a, b) => a + b, 0) / recentScores.length 
+      : 0;
+    const olderAvg = olderScores.length > 0 
+      ? olderScores.reduce((a, b) => a + b, 0) / olderScores.length 
+      : 0;
+    
+    const scoreTrend = olderAvg > 0 ? Math.round(recentAvg - olderAvg) : 0;
+    
+    // Monthly scores for mini chart (last 6 months)
+    const monthlyScores = audits.slice(0, 6).map(a => ({
+      date: a.audit_date,
+      score: Math.round(a.pass_percentage || 0),
+    })).reverse();
+    
+    return {
+      totalAudits,
+      passedAudits,
+      passRate,
+      avgScore,
+      scoreTrend,
+      lastAuditDate: lastAudit?.audit_date || null,
+      lastAuditScore: lastAudit ? Math.round(lastAudit.pass_percentage) : null,
+      openActions,
+      overdueActions,
+      monthlyScores,
+    };
+  } catch (error) {
+    console.error('Error getting location stats:', error);
+    return null;
+  }
+}
+
 export async function createLocation(formData: FormData): Promise<{ success: boolean; error?: string; id?: string }> {
   try {
     const orgId = await getOrganizationId();
@@ -1427,6 +1509,53 @@ export async function getAction(id: string) {
   return data;
 }
 
+// ============================================
+// GET MY ASSIGNED ACTIONS
+// ============================================
+
+export async function getMyActions(limit: number = 10): Promise<Action[]> {
+  try {
+    const orgId = await getOrganizationId();
+    if (!orgId) return [];
+
+    const { userId: clerkUserId } = await auth();
+    if (!clerkUserId) return [];
+
+    const supabase = createServiceClient();
+
+    // Get the user's Supabase ID
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('clerk_user_id', clerkUserId)
+      .single();
+
+    if (!userData) return [];
+
+    const { data, error } = await supabase
+      .from('actions')
+      .select(`
+        *,
+        location:locations(id, name, city)
+      `)
+      .eq('organization_id', orgId)
+      .eq('assigned_to_id', userData.id)
+      .in('status', ['pending', 'in_progress'])
+      .order('deadline', { ascending: true, nullsFirst: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('Error fetching my actions:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getMyActions:', error);
+    return [];
+  }
+}
+
 export async function createAction(formData: FormData): Promise<{ success: boolean; error?: string; id?: string }> {
   try {
     const orgId = await getOrganizationId();
@@ -1609,21 +1738,128 @@ export async function getDashboardStats() {
       locationsQuery = locationsQuery.in('id', accessibleLocationIds);
     }
 
-    const [auditsResult, actionsResult, locationsResult] = await Promise.all([
+    // Also get overdue actions and this month's audits
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const weekFromNowStr = weekFromNow.toISOString().split('T')[0];
+    
+    // First day of current month
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const firstDayStr = firstDayOfMonth.toISOString().split('T')[0];
+    
+    // First day of last month
+    const firstDayLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+    const firstDayLastMonthStr = firstDayLastMonth.toISOString().split('T')[0];
+    const lastDayLastMonthStr = lastDayLastMonth.toISOString().split('T')[0];
+
+    // Overdue actions query
+    let overdueQuery = supabase
+      .from('actions')
+      .select('id, location_id')
+      .eq('organization_id', orgId)
+      .in('status', ['pending', 'in_progress'])
+      .lt('deadline', todayStr);
+    
+    // Actions due this week
+    let dueSoonQuery = supabase
+      .from('actions')
+      .select('id, location_id')
+      .eq('organization_id', orgId)
+      .in('status', ['pending', 'in_progress'])
+      .gte('deadline', todayStr)
+      .lte('deadline', weekFromNowStr);
+    
+    // This month's completed audits
+    let thisMonthQuery = supabase
+      .from('audits')
+      .select('pass_percentage, location_id')
+      .eq('organization_id', orgId)
+      .eq('status', 'completed')
+      .gte('audit_date', firstDayStr);
+    
+    // Last month's completed audits (for comparison)
+    let lastMonthQuery = supabase
+      .from('audits')
+      .select('pass_percentage, location_id')
+      .eq('organization_id', orgId)
+      .eq('status', 'completed')
+      .gte('audit_date', firstDayLastMonthStr)
+      .lte('audit_date', lastDayLastMonthStr);
+
+    // Apply role-based location filter if user is not admin/inspector
+    if (accessibleLocationIds !== null) {
+      if (accessibleLocationIds.length === 0) {
+        return {
+          totalAudits: 0,
+          passRate: 0,
+          openActions: 0,
+          locationsCount: 0,
+          overdueActions: 0,
+          actionsDueSoon: 0,
+          auditsThisMonth: 0,
+          avgScoreThisMonth: 0,
+          avgScoreLastMonth: 0,
+          scoreTrend: 0,
+        };
+      }
+      auditsQuery = auditsQuery.in('location_id', accessibleLocationIds);
+      actionsQuery = actionsQuery.in('location_id', accessibleLocationIds);
+      locationsQuery = locationsQuery.in('id', accessibleLocationIds);
+      overdueQuery = overdueQuery.in('location_id', accessibleLocationIds);
+      dueSoonQuery = dueSoonQuery.in('location_id', accessibleLocationIds);
+      thisMonthQuery = thisMonthQuery.in('location_id', accessibleLocationIds);
+      lastMonthQuery = lastMonthQuery.in('location_id', accessibleLocationIds);
+    }
+
+    const [
+      auditsResult, 
+      actionsResult, 
+      locationsResult,
+      overdueResult,
+      dueSoonResult,
+      thisMonthResult,
+      lastMonthResult,
+    ] = await Promise.all([
       auditsQuery,
       actionsQuery,
       locationsQuery,
+      overdueQuery,
+      dueSoonQuery,
+      thisMonthQuery,
+      lastMonthQuery,
     ]);
 
     const audits = auditsResult.data || [];
     const passedCount = audits.filter(a => a.passed).length;
     const passRate = audits.length > 0 ? Math.round((passedCount / audits.length) * 100) : 0;
 
+    // Calculate average scores
+    const thisMonthAudits = thisMonthResult.data || [];
+    const lastMonthAudits = lastMonthResult.data || [];
+    
+    const avgScoreThisMonth = thisMonthAudits.length > 0 
+      ? Math.round(thisMonthAudits.reduce((sum, a) => sum + (a.pass_percentage || 0), 0) / thisMonthAudits.length)
+      : 0;
+    
+    const avgScoreLastMonth = lastMonthAudits.length > 0
+      ? Math.round(lastMonthAudits.reduce((sum, a) => sum + (a.pass_percentage || 0), 0) / lastMonthAudits.length)
+      : 0;
+    
+    const scoreTrend = avgScoreLastMonth > 0 ? avgScoreThisMonth - avgScoreLastMonth : 0;
+
     return {
       totalAudits: audits.length,
       passRate,
       openActions: actionsResult.data?.length || 0,
       locationsCount: locationsResult.data?.length || 0,
+      overdueActions: overdueResult.data?.length || 0,
+      actionsDueSoon: dueSoonResult.data?.length || 0,
+      auditsThisMonth: thisMonthAudits.length,
+      avgScoreThisMonth,
+      avgScoreLastMonth,
+      scoreTrend,
     };
   } catch (error) {
     console.error('Error in getDashboardStats:', error);
@@ -1632,6 +1868,12 @@ export async function getDashboardStats() {
       passRate: 0,
       openActions: 0,
       locationsCount: 0,
+      overdueActions: 0,
+      actionsDueSoon: 0,
+      auditsThisMonth: 0,
+      avgScoreThisMonth: 0,
+      avgScoreLastMonth: 0,
+      scoreTrend: 0,
     };
   }
 }

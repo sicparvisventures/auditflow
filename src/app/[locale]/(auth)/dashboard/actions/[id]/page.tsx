@@ -2,7 +2,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 
-import { getAction } from '@/actions/supabase';
+import { getAction, getUserPermissions } from '@/actions/supabase';
+import { getActionComments } from '@/actions/comments';
+import { ActionTimeline } from '@/features/actions';
 import { TitleBar } from '@/features/dashboard/TitleBar';
 import { ActionDetailHints } from '@/features/hints';
 
@@ -49,7 +51,11 @@ const urgencyLabels: Record<ActionUrgency, string> = {
 
 export default async function ActionDetailPage({ params }: Props) {
   const t = await getTranslations('ActionDetail');
-  const action = await getAction(params.id);
+  const [action, comments, permissions] = await Promise.all([
+    getAction(params.id),
+    getActionComments(params.id),
+    getUserPermissions(),
+  ]);
 
   if (!action) {
     notFound();
@@ -265,6 +271,15 @@ export default async function ActionDetailPage({ params }: Props) {
         {action.status === 'completed' && (
           <VerifyActionForm actionId={action.id} />
         )}
+
+        {/* Comments / Timeline */}
+        <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
+          <ActionTimeline
+            actionId={action.id}
+            comments={comments}
+            currentUserId={permissions.supabaseUserId || undefined}
+          />
+        </div>
 
         {/* Danger Zone */}
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">

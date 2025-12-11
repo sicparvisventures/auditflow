@@ -260,6 +260,7 @@
     "audits": "Audits",
     "actions": "Acties",
     "reports": "Rapporten",
+    "analytics": "Analytics",
     "locations": "Locaties",
     "members": "Team",
     "settings": "Instellingen"
@@ -536,5 +537,22 @@
     "search": "Zoeken...",
     "no_results": "Geen resultaten gevonden",
     "confirm_delete": "Weet je zeker dat je dit wilt verwijderen?"
+  },
+  "Analytics": {
+    "title": "Analytics",
+    "description": "Gedetailleerde inzichten en trends"
+  },
+  "ActivityLog": {
+    "title": "Activiteitenlog",
+    "description": "Volg alle wijzigingen en audit trail"
+  },
+  "ScheduledAudits": {
+    "title": "Geplande Audits",
+    "description": "Plan en automatiseer terugkerende audits"
+  },
+  "Notifications": {
+    "title": "Notificaties",
+    "mark_all_read": "Alles als gelezen markeren",
+    "no_notifications": "Nog geen notificaties"
   }
 }

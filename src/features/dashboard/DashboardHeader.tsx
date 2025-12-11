@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { HintToggle } from '@/features/hints';
+import { NotificationCenter } from '@/features/notifications';
 import { Logo } from '@/templates/Logo';
 import { getI18nPath } from '@/utils/Helpers';
 
@@ -76,45 +77,51 @@ export const DashboardHeader = (props: {
       </div>
 
       <div>
-        <ul className="flex items-center gap-x-1.5 [&_li[data-fade]:hover]:opacity-100 [&_li[data-fade]]:opacity-60">
-          <li data-fade>
-            <div className="lg:hidden">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <ToggleMenuButton />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  {props.menu.map(item => (
-                    <DropdownMenuItem key={item.href} asChild>
-                      <Link href={item.href}>{item.label}</Link>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+        <ul className="flex items-center gap-x-1 sm:gap-x-1.5 [&_li[data-fade]:hover]:opacity-100 [&_li[data-fade]]:opacity-60">
+          {/* Mobile: Only show hamburger menu for navigation */}
+          <li data-fade className="lg:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <ToggleMenuButton />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {props.menu.map(item => (
+                  <DropdownMenuItem key={item.href} asChild>
+                    <Link href={item.href}>{item.label}</Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </li>
 
-          {/* PRO: Dark mode toggle button */}
-
-          <li data-fade>
+          {/* Hints toggle - hidden on mobile, accessible via More page */}
+          <li data-fade className="hidden sm:block">
             <HintToggle />
           </li>
 
+          {/* Notifications - always visible (important for UX) */}
           <li data-fade>
+            <NotificationCenter />
+          </li>
+
+          {/* Language switcher - hidden on mobile, accessible via More page */}
+          <li data-fade className="hidden sm:block">
             <LocaleSwitcher />
           </li>
 
-          <li>
+          {/* Separator - hidden on mobile for cleaner look */}
+          <li className="hidden sm:block">
             <Separator orientation="vertical" className="h-4" />
           </li>
 
+          {/* User profile - always visible */}
           <li>
             <UserButton
               userProfileMode="navigation"
               userProfileUrl="/dashboard/user-profile"
               appearance={{
                 elements: {
-                  rootBox: 'px-2 py-1.5',
+                  rootBox: 'px-1.5 py-1.5 sm:px-2',
                   footer: 'hidden',
                   footerAction: 'hidden',
                   footerPages: 'hidden',

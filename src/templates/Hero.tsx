@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
@@ -12,6 +13,16 @@ export const Hero = () => {
   return (
     <Section className="overflow-hidden py-12 sm:py-16 md:py-24 lg:py-32">
       <CenteredHero
+        logo={(
+          <Image
+            src="/logot.png"
+            alt="AuditFlow Logo"
+            width={80}
+            height={80}
+            className="size-16 object-contain md:size-20"
+            priority
+          />
+        )}
         banner={(
           <span className={`${badgeVariants()} border-primary/20 bg-primary/5 text-primary hover:bg-primary/10`}>
             <span className="mr-1.5 inline-flex size-2 animate-pulse rounded-full bg-green-500" />

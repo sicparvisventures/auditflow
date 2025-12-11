@@ -21,3 +21,5 @@ const Features = (props: { params: { locale: string } }) => {
 };
 
 export default Features;
+
+
